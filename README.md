@@ -1,2 +1,0 @@
-# DeploymentReadinessPlatform
-WarHacker project

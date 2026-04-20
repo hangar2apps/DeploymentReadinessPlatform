@@ -1,0 +1,1272 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>DRP — Deployment Readiness Platform Mockups</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600;700&family=Sora:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg: #0e1613;
+    --surface: #151e1b;
+    --surface-raised: #1c2724;
+    --border: #2a3734;
+    --border-strong: #3a4a46;
+    --text: #dfe8e3;
+    --text-dim: #8a9690;
+    --text-faint: #5a6662;
+    --accent: #c5d64a;
+    --accent-dim: #8a9533;
+    --ok: #4ade80;
+    --warn: #fbbf24;
+    --danger: #f87171;
+    --info: #60a5fa;
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: 'Sora', system-ui, sans-serif;
+    font-size: 14px;
+    line-height: 1.5;
+    min-height: 100vh;
+    background-image:
+      radial-gradient(circle at 20% 10%, rgba(197, 214, 74, 0.04) 0%, transparent 40%),
+      radial-gradient(circle at 80% 80%, rgba(96, 165, 250, 0.03) 0%, transparent 40%);
+  }
+
+  .mono { font-family: 'JetBrains Mono', monospace; }
+
+  /* Page header */
+  .page-header {
+    border-bottom: 1px solid var(--border);
+    padding: 24px 40px;
+    background: var(--surface);
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+  }
+
+  .brand {
+    display: flex;
+    align-items: baseline;
+    gap: 14px;
+  }
+  .brand-mark {
+    font-family: 'JetBrains Mono', monospace;
+    font-weight: 700;
+    font-size: 24px;
+    letter-spacing: 0.02em;
+    color: var(--accent);
+  }
+  .brand-name {
+    font-weight: 500;
+    color: var(--text-dim);
+    font-size: 13px;
+    text-transform: uppercase;
+    letter-spacing: 0.15em;
+  }
+
+  .classification-bar {
+    background: var(--accent);
+    color: #0e1613;
+    text-align: center;
+    padding: 4px 12px;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: 0.2em;
+  }
+
+  .nav-role-switcher {
+    display: flex;
+    gap: 4px;
+    background: var(--bg);
+    padding: 4px;
+    border-radius: 4px;
+    border: 1px solid var(--border);
+  }
+  .nav-role-switcher a {
+    padding: 6px 14px;
+    font-size: 12px;
+    color: var(--text-dim);
+    text-decoration: none;
+    border-radius: 2px;
+    transition: all 150ms;
+    font-family: 'JetBrains Mono', monospace;
+    letter-spacing: 0.05em;
+  }
+  .nav-role-switcher a:hover { color: var(--text); }
+  .nav-role-switcher a.active {
+    background: var(--accent);
+    color: #0e1613;
+    font-weight: 600;
+  }
+
+  .intro-section {
+    max-width: 1280px;
+    margin: 60px auto;
+    padding: 0 40px;
+  }
+  .intro-section h1 {
+    font-size: 48px;
+    font-weight: 800;
+    letter-spacing: -0.02em;
+    margin-bottom: 12px;
+  }
+  .intro-section h1 .accent { color: var(--accent); }
+  .intro-section p {
+    font-size: 16px;
+    color: var(--text-dim);
+    max-width: 640px;
+    margin-bottom: 8px;
+  }
+  .intro-section .muted {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 12px;
+    color: var(--text-faint);
+    margin-top: 20px;
+    letter-spacing: 0.05em;
+  }
+
+  /* Screen containers */
+  .screen-block {
+    max-width: 1280px;
+    margin: 0 auto 80px auto;
+    padding: 0 40px;
+  }
+
+  .screen-header {
+    display: flex;
+    align-items: baseline;
+    gap: 16px;
+    margin-bottom: 20px;
+    padding-bottom: 16px;
+    border-bottom: 1px solid var(--border);
+  }
+  .screen-number {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 14px;
+    color: var(--accent);
+    font-weight: 600;
+  }
+  .screen-title {
+    font-size: 22px;
+    font-weight: 600;
+  }
+  .screen-subtitle {
+    color: var(--text-dim);
+    font-size: 14px;
+  }
+
+  /* Device frames */
+  .device-frame {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    overflow: hidden;
+    box-shadow: 0 20px 60px rgba(0,0,0,0.4);
+  }
+
+  .device-chrome {
+    background: var(--surface-raised);
+    padding: 10px 16px;
+    border-bottom: 1px solid var(--border);
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 11px;
+    color: var(--text-faint);
+  }
+  .dot {
+    width: 10px; height: 10px; border-radius: 50%;
+    background: var(--border-strong);
+  }
+  .url {
+    margin-left: 12px;
+    background: var(--bg);
+    padding: 4px 12px;
+    border-radius: 4px;
+    color: var(--text-dim);
+  }
+
+  /* Screen 1: Service Member phone view */
+  .phone-wrapper {
+    display: grid;
+    grid-template-columns: 360px 1fr;
+    gap: 40px;
+    align-items: start;
+  }
+  .phone {
+    background: #0b110f;
+    border: 8px solid #1a2421;
+    border-radius: 36px;
+    padding: 0;
+    overflow: hidden;
+    aspect-ratio: 9 / 19.5;
+    position: relative;
+  }
+  .phone-notch {
+    position: absolute;
+    top: 12px;
+    left: 50%;
+    transform: translateX(-50%);
+    width: 100px;
+    height: 24px;
+    background: #000;
+    border-radius: 12px;
+    z-index: 10;
+  }
+  .phone-screen {
+    background: var(--surface);
+    height: 100%;
+    overflow-y: auto;
+    padding: 48px 18px 24px;
+    display: flex;
+    flex-direction: column;
+    gap: 14px;
+  }
+  .phone-topbar {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 4px;
+  }
+  .phone-back {
+    color: var(--accent);
+    font-size: 13px;
+    font-family: 'JetBrains Mono', monospace;
+  }
+  .phone-title-row {
+    padding: 4px 0 12px;
+    border-bottom: 1px solid var(--border);
+  }
+  .phone-title-row .eyebrow {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 10px;
+    letter-spacing: 0.2em;
+    color: var(--text-faint);
+  }
+  .phone-title-row .title {
+    font-size: 18px;
+    font-weight: 600;
+    margin-top: 4px;
+  }
+  .phone-progress {
+    display: flex;
+    gap: 4px;
+    margin: 8px 0 4px;
+  }
+  .phone-progress .bar {
+    flex: 1;
+    height: 3px;
+    background: var(--border);
+    border-radius: 2px;
+  }
+  .phone-progress .bar.done { background: var(--accent); }
+  .phone-progress .bar.current { background: var(--accent-dim); }
+
+  .phone-question-label {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 10px;
+    letter-spacing: 0.15em;
+    color: var(--text-faint);
+    margin-top: 4px;
+  }
+  .phone-question {
+    font-size: 15px;
+    font-weight: 500;
+    line-height: 1.4;
+    margin-top: 2px;
+  }
+  .phone-help {
+    font-size: 11px;
+    color: var(--text-dim);
+  }
+
+  .phone-option {
+    background: var(--surface-raised);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 12px 14px;
+    font-size: 13px;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+  }
+  .phone-option.selected {
+    border-color: var(--accent);
+    background: rgba(197, 214, 74, 0.08);
+  }
+  .phone-option .radio {
+    width: 16px; height: 16px;
+    border-radius: 50%;
+    border: 1.5px solid var(--border-strong);
+    flex-shrink: 0;
+    position: relative;
+  }
+  .phone-option.selected .radio {
+    border-color: var(--accent);
+  }
+  .phone-option.selected .radio::after {
+    content: '';
+    position: absolute;
+    inset: 3px;
+    background: var(--accent);
+    border-radius: 50%;
+  }
+
+  .phone-cta {
+    background: var(--accent);
+    color: #0e1613;
+    font-weight: 600;
+    padding: 14px;
+    border-radius: 8px;
+    text-align: center;
+    font-size: 14px;
+    margin-top: auto;
+  }
+
+  .phone-annotations {
+    display: flex;
+    flex-direction: column;
+    gap: 20px;
+    padding-top: 20px;
+  }
+  .annotation {
+    padding: 16px 20px;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-left: 3px solid var(--accent);
+    border-radius: 4px;
+  }
+  .annotation .label {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 10px;
+    letter-spacing: 0.15em;
+    color: var(--accent);
+    margin-bottom: 6px;
+  }
+  .annotation .text {
+    font-size: 13px;
+    color: var(--text-dim);
+    line-height: 1.5;
+  }
+
+  /* Provider queue */
+  .provider-layout {
+    display: grid;
+    grid-template-columns: 220px 1fr;
+    min-height: 640px;
+  }
+
+  .sidebar {
+    background: var(--bg);
+    border-right: 1px solid var(--border);
+    padding: 20px 16px;
+  }
+  .sidebar .user {
+    padding-bottom: 16px;
+    border-bottom: 1px solid var(--border);
+    margin-bottom: 16px;
+  }
+  .sidebar .user .rank {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 10px;
+    letter-spacing: 0.15em;
+    color: var(--text-faint);
+  }
+  .sidebar .user .name {
+    font-weight: 600;
+    margin-top: 2px;
+  }
+  .sidebar .user .unit {
+    font-size: 12px;
+    color: var(--text-dim);
+  }
+
+  .sidebar-label {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 10px;
+    letter-spacing: 0.2em;
+    color: var(--text-faint);
+    padding: 8px 8px;
+  }
+  .sidebar-item {
+    padding: 8px 10px;
+    font-size: 13px;
+    color: var(--text-dim);
+    border-radius: 4px;
+    margin-bottom: 2px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+  }
+  .sidebar-item.active {
+    background: var(--surface-raised);
+    color: var(--text);
+    border-left: 2px solid var(--accent);
+    padding-left: 8px;
+  }
+  .sidebar-item .count {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 11px;
+    color: var(--text-faint);
+  }
+  .sidebar-item.danger .count { color: var(--danger); }
+
+  .main-pane {
+    padding: 28px 32px;
+    background: var(--surface);
+  }
+  .pane-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-end;
+    margin-bottom: 20px;
+  }
+  .pane-header h2 {
+    font-size: 22px;
+    font-weight: 600;
+  }
+  .pane-header .eyebrow {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 11px;
+    letter-spacing: 0.15em;
+    color: var(--text-faint);
+  }
+  .filters {
+    display: flex;
+    gap: 8px;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 11px;
+  }
+  .filter-chip {
+    padding: 5px 12px;
+    border: 1px solid var(--border);
+    border-radius: 20px;
+    color: var(--text-dim);
+  }
+  .filter-chip.active {
+    background: var(--accent);
+    color: #0e1613;
+    border-color: var(--accent);
+    font-weight: 600;
+  }
+
+  .queue-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 13px;
+  }
+  .queue-table thead th {
+    text-align: left;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 10px;
+    letter-spacing: 0.15em;
+    color: var(--text-faint);
+    padding: 12px 12px 12px 0;
+    border-bottom: 1px solid var(--border);
+    font-weight: 500;
+  }
+  .queue-table tbody td {
+    padding: 14px 12px 14px 0;
+    border-bottom: 1px solid var(--border);
+    vertical-align: middle;
+  }
+  .queue-table tbody tr:hover { background: rgba(255,255,255,0.02); }
+
+  .name-cell { display: flex; flex-direction: column; }
+  .name-cell .name { font-weight: 500; }
+  .name-cell .meta { font-family: 'JetBrains Mono', monospace; font-size: 11px; color: var(--text-faint); margin-top: 2px; }
+
+  .flag-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 3px 9px;
+    border-radius: 3px;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 10px;
+    letter-spacing: 0.1em;
+    font-weight: 600;
+  }
+  .flag-badge.high { background: rgba(248,113,113,0.12); color: var(--danger); }
+  .flag-badge.med { background: rgba(251,191,36,0.12); color: var(--warn); }
+  .flag-badge.low { background: rgba(96,165,250,0.12); color: var(--info); }
+  .flag-badge.none { background: rgba(74,222,128,0.1); color: var(--ok); }
+
+  .btn-small {
+    background: transparent;
+    border: 1px solid var(--border-strong);
+    color: var(--text);
+    padding: 5px 10px;
+    border-radius: 4px;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 10px;
+    letter-spacing: 0.1em;
+    cursor: pointer;
+  }
+  .btn-small.primary {
+    background: var(--accent);
+    color: #0e1613;
+    border-color: var(--accent);
+    font-weight: 600;
+  }
+
+  /* Commander dashboard */
+  .commander-layout {
+    padding: 28px 32px;
+    background: var(--surface);
+  }
+
+  .commander-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    margin-bottom: 28px;
+  }
+  .commander-header h1 {
+    font-size: 28px;
+    font-weight: 700;
+    letter-spacing: -0.01em;
+  }
+  .commander-header .subtitle {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 11px;
+    letter-spacing: 0.15em;
+    color: var(--text-faint);
+    margin-top: 4px;
+  }
+  .commander-header .timestamp {
+    text-align: right;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 11px;
+    color: var(--text-faint);
+  }
+  .commander-header .timestamp .time {
+    color: var(--accent);
+    font-size: 13px;
+    font-weight: 600;
+  }
+
+  .kpi-grid {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 1px;
+    background: var(--border);
+    border: 1px solid var(--border);
+    margin-bottom: 28px;
+  }
+  .kpi {
+    background: var(--surface);
+    padding: 20px;
+  }
+  .kpi .label {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 10px;
+    letter-spacing: 0.2em;
+    color: var(--text-faint);
+  }
+  .kpi .value {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 36px;
+    font-weight: 700;
+    margin-top: 8px;
+    line-height: 1;
+  }
+  .kpi .delta {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 11px;
+    margin-top: 6px;
+  }
+  .kpi .delta.down { color: var(--danger); }
+  .kpi .delta.up { color: var(--ok); }
+  .kpi.primary .value { color: var(--accent); font-size: 44px; }
+
+  .dashboard-grid {
+    display: grid;
+    grid-template-columns: 1.3fr 1fr;
+    gap: 24px;
+  }
+
+  .card {
+    background: var(--bg);
+    border: 1px solid var(--border);
+    padding: 20px;
+  }
+  .card-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: baseline;
+    margin-bottom: 16px;
+    padding-bottom: 12px;
+    border-bottom: 1px solid var(--border);
+  }
+  .card-header h3 {
+    font-size: 14px;
+    font-weight: 600;
+  }
+  .card-header .card-eyebrow {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 10px;
+    letter-spacing: 0.15em;
+    color: var(--text-faint);
+  }
+
+  .unit-row {
+    display: grid;
+    grid-template-columns: 140px 1fr 60px 50px;
+    align-items: center;
+    padding: 10px 0;
+    border-bottom: 1px solid var(--border);
+    font-size: 13px;
+    gap: 12px;
+  }
+  .unit-row:last-child { border-bottom: none; }
+  .unit-row .unit-name { font-weight: 500; }
+  .unit-row .unit-sub { font-family: 'JetBrains Mono', monospace; font-size: 10px; color: var(--text-faint); }
+  .unit-row .pct { font-family: 'JetBrains Mono', monospace; font-weight: 600; text-align: right; }
+  .unit-row .drill { color: var(--accent); font-family: 'JetBrains Mono', monospace; font-size: 11px; text-align: right; }
+
+  .bar-track {
+    height: 6px;
+    background: var(--border);
+    border-radius: 3px;
+    overflow: hidden;
+    position: relative;
+  }
+  .bar-fill {
+    height: 100%;
+    background: var(--ok);
+  }
+  .bar-fill.warn { background: var(--warn); }
+  .bar-fill.danger { background: var(--danger); }
+
+  .issue-row {
+    display: grid;
+    grid-template-columns: auto 1fr auto;
+    gap: 12px;
+    padding: 12px 0;
+    border-bottom: 1px solid var(--border);
+    align-items: start;
+    font-size: 13px;
+  }
+  .issue-row:last-child { border-bottom: none; }
+  .issue-icon {
+    width: 8px; height: 8px;
+    border-radius: 50%;
+    margin-top: 6px;
+  }
+  .issue-icon.high { background: var(--danger); box-shadow: 0 0 0 3px rgba(248,113,113,0.15); }
+  .issue-icon.med { background: var(--warn); box-shadow: 0 0 0 3px rgba(251,191,36,0.15); }
+  .issue-icon.low { background: var(--info); }
+
+  .issue-title { font-weight: 500; }
+  .issue-sub { font-family: 'JetBrains Mono', monospace; font-size: 10px; color: var(--text-faint); margin-top: 2px; }
+  .issue-action { font-family: 'JetBrains Mono', monospace; font-size: 10px; color: var(--accent); letter-spacing: 0.1em; }
+
+  .legend {
+    display: flex;
+    gap: 16px;
+    margin-top: 16px;
+    padding-top: 16px;
+    border-top: 1px solid var(--border);
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 10px;
+    color: var(--text-faint);
+    letter-spacing: 0.1em;
+  }
+  .legend-item { display: flex; align-items: center; gap: 6px; }
+  .legend-dot { width: 10px; height: 3px; border-radius: 1px; }
+
+  .trend-chart {
+    height: 160px;
+    position: relative;
+    margin-top: 8px;
+  }
+  .trend-chart svg { width: 100%; height: 100%; }
+
+  .footer-note {
+    max-width: 1280px;
+    margin: 100px auto 40px;
+    padding: 0 40px;
+    border-top: 1px solid var(--border);
+    padding-top: 30px;
+    color: var(--text-faint);
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 11px;
+    letter-spacing: 0.1em;
+    display: flex;
+    justify-content: space-between;
+  }
+
+  @media (max-width: 900px) {
+    .phone-wrapper { grid-template-columns: 1fr; }
+    .phone { max-width: 360px; margin: 0 auto; }
+    .dashboard-grid { grid-template-columns: 1fr; }
+    .kpi-grid { grid-template-columns: repeat(2, 1fr); }
+    .provider-layout { grid-template-columns: 1fr; }
+  }
+</style>
+</head>
+<body>
+
+<div class="classification-bar">CUI // CONTROLLED UNCLASSIFIED INFORMATION // MOCKUP — NOT ACTUAL PHI</div>
+
+<header class="page-header">
+  <div class="brand">
+    <div class="brand-mark">DRP://</div>
+    <div class="brand-name">Deployment Readiness Platform</div>
+  </div>
+  <nav class="nav-role-switcher">
+    <a href="#member" class="active">SERVICE MEMBER</a>
+    <a href="#provider">PROVIDER</a>
+    <a href="#commander">COMMANDER</a>
+  </nav>
+</header>
+
+<section class="intro-section">
+  <h1>Unit readiness, <span class="accent">visible in real time.</span></h1>
+  <p>DRP replaces paper forms, Excel rollups, and fragmented health systems with a single digital workflow for pre- and post-deployment health screening.</p>
+  <p>Three user surfaces, one source of truth.</p>
+  <div class="muted">WARHACKER 2026 // HI-FI MOCKUPS // V0.1</div>
+</section>
+
+<!-- ============ SCREEN 1: SERVICE MEMBER ============ -->
+<section class="screen-block" id="member">
+  <div class="screen-header">
+    <div class="screen-number">01</div>
+    <div>
+      <div class="screen-title">Service Member — Pre-Deployment Health Assessment</div>
+      <div class="screen-subtitle">Mobile-first questionnaire. DD 2795 equivalent. ~15 min to complete.</div>
+    </div>
+  </div>
+
+  <div class="phone-wrapper">
+    <div class="phone">
+      <div class="phone-notch"></div>
+      <div class="phone-screen">
+        <div class="phone-topbar">
+          <div class="phone-back mono">&larr; BACK</div>
+          <div class="mono" style="font-size: 10px; color: var(--text-faint);">STEP 4 / 12</div>
+        </div>
+
+        <div class="phone-title-row">
+          <div class="eyebrow">PRE-DHA // DD 2795</div>
+          <div class="title">Mental health screening</div>
+          <div class="phone-progress">
+            <div class="bar done"></div>
+            <div class="bar done"></div>
+            <div class="bar done"></div>
+            <div class="bar current"></div>
+            <div class="bar"></div>
+            <div class="bar"></div>
+            <div class="bar"></div>
+            <div class="bar"></div>
+            <div class="bar"></div>
+            <div class="bar"></div>
+            <div class="bar"></div>
+            <div class="bar"></div>
+          </div>
+        </div>
+
+        <div>
+          <div class="phone-question-label mono">PHQ-9 // QUESTION 2 OF 9</div>
+          <div class="phone-question">Over the past 2 weeks, how often have you been bothered by feeling down, depressed, or hopeless?</div>
+          <div class="phone-help">Your responses are reviewed only by your medical provider.</div>
+        </div>
+
+        <div class="phone-option">
+          <div class="radio"></div>
+          Not at all
+        </div>
+        <div class="phone-option selected">
+          <div class="radio"></div>
+          Several days
+        </div>
+        <div class="phone-option">
+          <div class="radio"></div>
+          More than half the days
+        </div>
+        <div class="phone-option">
+          <div class="radio"></div>
+          Nearly every day
+        </div>
+
+        <div class="phone-cta">CONTINUE</div>
+      </div>
+    </div>
+
+    <div class="phone-annotations">
+      <div class="annotation">
+        <div class="label mono">WHAT'S HAPPENING</div>
+        <div class="text">Standard validated instrument (PHQ-9). Responses scored automatically. A score ≥10 triggers a red flag for provider review and blocks auto-clearance.</div>
+      </div>
+      <div class="annotation">
+        <div class="label mono">DATA FLOW</div>
+        <div class="text">Answers encrypted in transit and at rest. Only the assigned medical provider and the service member see individual answers — commanders see aggregate readiness status only.</div>
+      </div>
+      <div class="annotation">
+        <div class="label mono">WHY THIS MATTERS</div>
+        <div class="text">Today this form is often filled out on paper in a conference room the morning of SRP. Privacy is thin, scoring is manual, and concerning responses regularly get missed.</div>
+      </div>
+      <div class="annotation">
+        <div class="label mono">NEXT SCREEN (NOT SHOWN)</div>
+        <div class="text">Immunization check with camera upload for records, chronic conditions, current medications, recent hospitalizations, pregnancy status, and self-attestation signature.</div>
+      </div>
+    </div>
+  </div>
+</section>
+
+
+<!-- ============ SCREEN 2: PROVIDER ============ -->
+<section class="screen-block" id="provider">
+  <div class="screen-header">
+    <div class="screen-number">02</div>
+    <div>
+      <div class="screen-title">Medical Provider — Review Queue</div>
+      <div class="screen-subtitle">Inbox of assessments awaiting certification. Red flags surface first.</div>
+    </div>
+  </div>
+
+  <div class="device-frame">
+    <div class="device-chrome">
+      <div class="dot"></div><div class="dot"></div><div class="dot"></div>
+      <div class="url">drp.army.mil / provider / queue</div>
+    </div>
+    <div class="provider-layout">
+      <aside class="sidebar">
+        <div class="user">
+          <div class="rank mono">CPT / BN SURGEON</div>
+          <div class="name">Chen, David M.</div>
+          <div class="unit">1-327 IN // HHC</div>
+        </div>
+
+        <div class="sidebar-label">QUEUE</div>
+        <div class="sidebar-item active">
+          My Queue
+          <span class="count">23</span>
+        </div>
+        <div class="sidebar-item danger">
+          Red Flagged
+          <span class="count">6</span>
+        </div>
+        <div class="sidebar-item">
+          Awaiting Labs
+          <span class="count">4</span>
+        </div>
+        <div class="sidebar-item">
+          Referred Out
+          <span class="count">11</span>
+        </div>
+        <div class="sidebar-item">
+          Certified (7d)
+          <span class="count">84</span>
+        </div>
+
+        <div class="sidebar-label" style="margin-top: 16px;">TYPE</div>
+        <div class="sidebar-item">Pre-DHA <span class="count">15</span></div>
+        <div class="sidebar-item">Post-DHA <span class="count">6</span></div>
+        <div class="sidebar-item">PDHRA <span class="count">2</span></div>
+      </aside>
+
+      <div class="main-pane">
+        <div class="pane-header">
+          <div>
+            <div class="eyebrow mono">ALPHA CO // BRAVO CO // HHC</div>
+            <h2>Review queue — 23 pending</h2>
+          </div>
+          <div class="filters">
+            <span class="filter-chip active">ALL</span>
+            <span class="filter-chip">RED FLAG</span>
+            <span class="filter-chip">OVERDUE</span>
+            <span class="filter-chip">NEW</span>
+          </div>
+        </div>
+
+        <table class="queue-table">
+          <thead>
+            <tr>
+              <th>SERVICE MEMBER</th>
+              <th>UNIT</th>
+              <th>TYPE</th>
+              <th>FLAGS</th>
+              <th>SUBMITTED</th>
+              <th></th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td class="name-cell">
+                <span class="name">Bailey, Marcus T.</span>
+                <span class="meta">SPC // 1234567890</span>
+              </td>
+              <td class="mono" style="font-size: 12px;">B CO / 2PLT</td>
+              <td class="mono" style="font-size: 11px;">PRE-DHA</td>
+              <td>
+                <span class="flag-badge high">● HIGH — PHQ-9 = 14</span>
+              </td>
+              <td class="mono" style="font-size: 11px; color: var(--text-dim);">2h ago</td>
+              <td style="text-align: right;"><button class="btn-small primary">REVIEW</button></td>
+            </tr>
+            <tr>
+              <td class="name-cell">
+                <span class="name">Rodriguez, Elena C.</span>
+                <span class="meta">SPC // 1234567891</span>
+              </td>
+              <td class="mono" style="font-size: 12px;">A CO / 1PLT</td>
+              <td class="mono" style="font-size: 11px;">PRE-DHA</td>
+              <td>
+                <span class="flag-badge none">● NONE</span>
+              </td>
+              <td class="mono" style="font-size: 11px; color: var(--text-dim);">3h ago</td>
+              <td style="text-align: right;"><button class="btn-small">REVIEW</button></td>
+            </tr>
+            <tr>
+              <td class="name-cell">
+                <span class="name">Okonkwo, James A.</span>
+                <span class="meta">SGT // 1234567892</span>
+              </td>
+              <td class="mono" style="font-size: 12px;">B CO / 3PLT</td>
+              <td class="mono" style="font-size: 11px;">PRE-DHA</td>
+              <td>
+                <span class="flag-badge med">● MED — PHA > 12MO</span>
+              </td>
+              <td class="mono" style="font-size: 11px; color: var(--text-dim);">4h ago</td>
+              <td style="text-align: right;"><button class="btn-small">REVIEW</button></td>
+            </tr>
+            <tr>
+              <td class="name-cell">
+                <span class="name">Nguyen, Thanh H.</span>
+                <span class="meta">PFC // 1234567893</span>
+              </td>
+              <td class="mono" style="font-size: 12px;">A CO / 2PLT</td>
+              <td class="mono" style="font-size: 11px;">PRE-DHA</td>
+              <td>
+                <span class="flag-badge high">● HIGH — DENTAL CLASS 3</span>
+              </td>
+              <td class="mono" style="font-size: 11px; color: var(--text-dim);">5h ago</td>
+              <td style="text-align: right;"><button class="btn-small primary">REVIEW</button></td>
+            </tr>
+            <tr>
+              <td class="name-cell">
+                <span class="name">Petrov, Anna L.</span>
+                <span class="meta">SPC // 1234567894</span>
+              </td>
+              <td class="mono" style="font-size: 12px;">HHC</td>
+              <td class="mono" style="font-size: 11px;">POST-DHA</td>
+              <td>
+                <span class="flag-badge med">● MED — PCL-5 = 27</span>
+              </td>
+              <td class="mono" style="font-size: 11px; color: var(--text-dim);">7h ago</td>
+              <td style="text-align: right;"><button class="btn-small">REVIEW</button></td>
+            </tr>
+            <tr>
+              <td class="name-cell">
+                <span class="name">Harrington, Luke D.</span>
+                <span class="meta">SSG // 1234567895</span>
+              </td>
+              <td class="mono" style="font-size: 12px;">B CO / 1PLT</td>
+              <td class="mono" style="font-size: 11px;">PRE-DHA</td>
+              <td>
+                <span class="flag-badge med">● MED — IMM EXPIRED</span>
+              </td>
+              <td class="mono" style="font-size: 11px; color: var(--text-dim);">9h ago</td>
+              <td style="text-align: right;"><button class="btn-small">REVIEW</button></td>
+            </tr>
+            <tr>
+              <td class="name-cell">
+                <span class="name">Williams, Jada R.</span>
+                <span class="meta">SPC // 1234567896</span>
+              </td>
+              <td class="mono" style="font-size: 12px;">A CO / 3PLT</td>
+              <td class="mono" style="font-size: 11px;">PRE-DHA</td>
+              <td>
+                <span class="flag-badge none">● NONE</span>
+              </td>
+              <td class="mono" style="font-size: 11px; color: var(--text-dim);">11h ago</td>
+              <td style="text-align: right;"><button class="btn-small">REVIEW</button></td>
+            </tr>
+            <tr>
+              <td class="name-cell">
+                <span class="name">Cho, Min-Jun</span>
+                <span class="meta">PVT // 1234567897</span>
+              </td>
+              <td class="mono" style="font-size: 12px;">HHC</td>
+              <td class="mono" style="font-size: 11px;">PRE-DHA</td>
+              <td>
+                <span class="flag-badge low">● LOW — NEW MED RX</span>
+              </td>
+              <td class="mono" style="font-size: 11px; color: var(--text-dim);">14h ago</td>
+              <td style="text-align: right;"><button class="btn-small">REVIEW</button></td>
+            </tr>
+          </tbody>
+        </table>
+
+        <div style="margin-top: 24px; padding: 16px; background: var(--bg); border: 1px solid var(--border); font-size: 12px; color: var(--text-dim);">
+          <span class="mono" style="color: var(--accent); font-size: 10px; letter-spacing: 0.15em;">▸ CLICK A ROW </span>
+          opens full assessment with auto-calculated scores, trended history from MHS Genesis, and one-click certify / refer / non-deployable actions.
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+
+<!-- ============ SCREEN 3: COMMANDER ============ -->
+<section class="screen-block" id="commander">
+  <div class="screen-header">
+    <div class="screen-number">03</div>
+    <div>
+      <div class="screen-title">Battalion Commander — Readiness Dashboard</div>
+      <div class="screen-subtitle">Live rollup. Drill down from BN to CO to individual. No PHI exposed — aggregated status only.</div>
+    </div>
+  </div>
+
+  <div class="device-frame">
+    <div class="device-chrome">
+      <div class="dot"></div><div class="dot"></div><div class="dot"></div>
+      <div class="url">drp.army.mil / commander / 1-327-IN</div>
+    </div>
+    <div class="commander-layout">
+      <div class="commander-header">
+        <div>
+          <h1>1-327 IN — Medical Readiness</h1>
+          <div class="subtitle mono">LTC HARRIS // BATTALION COMMANDER</div>
+        </div>
+        <div class="timestamp">
+          <div class="mono">LAST UPDATED</div>
+          <div class="time mono">0647 LOCAL // 20 APR 26</div>
+        </div>
+      </div>
+
+      <div class="kpi-grid">
+        <div class="kpi primary">
+          <div class="label mono">% DEPLOYABLE</div>
+          <div class="value">87.2%</div>
+          <div class="delta down">▼ 3.8 pts this week</div>
+        </div>
+        <div class="kpi">
+          <div class="label mono">ASSIGNED</div>
+          <div class="value">648</div>
+          <div class="delta" style="color: var(--text-dim);">&nbsp;</div>
+        </div>
+        <div class="kpi">
+          <div class="label mono">NON-DEPLOYABLE</div>
+          <div class="value" style="color: var(--danger);">83</div>
+          <div class="delta down">▲ 24 since last week</div>
+        </div>
+        <div class="kpi">
+          <div class="label mono">PDHRA COMPLIANCE</div>
+          <div class="value">72%</div>
+          <div class="delta up">▲ 8 pts this month</div>
+        </div>
+      </div>
+
+      <div class="dashboard-grid">
+        <div class="card">
+          <div class="card-header">
+            <h3>Readiness by company</h3>
+            <div class="card-eyebrow mono">DRILL DOWN ▾</div>
+          </div>
+
+          <div class="unit-row">
+            <div>
+              <div class="unit-name">Alpha Company</div>
+              <div class="unit-sub mono">A / 1-327 IN // 148 ASSIGNED</div>
+            </div>
+            <div class="bar-track"><div class="bar-fill" style="width: 93%;"></div></div>
+            <div class="pct mono">93%</div>
+            <div class="drill mono">VIEW →</div>
+          </div>
+
+          <div class="unit-row">
+            <div>
+              <div class="unit-name">Bravo Company</div>
+              <div class="unit-sub mono">B / 1-327 IN // 152 ASSIGNED</div>
+            </div>
+            <div class="bar-track"><div class="bar-fill warn" style="width: 78%;"></div></div>
+            <div class="pct mono" style="color: var(--warn);">78%</div>
+            <div class="drill mono">VIEW →</div>
+          </div>
+
+          <div class="unit-row">
+            <div>
+              <div class="unit-name">Charlie Company</div>
+              <div class="unit-sub mono">C / 1-327 IN // 151 ASSIGNED</div>
+            </div>
+            <div class="bar-track"><div class="bar-fill" style="width: 91%;"></div></div>
+            <div class="pct mono">91%</div>
+            <div class="drill mono">VIEW →</div>
+          </div>
+
+          <div class="unit-row">
+            <div>
+              <div class="unit-name">Delta Company</div>
+              <div class="unit-sub mono">D / 1-327 IN // 98 ASSIGNED</div>
+            </div>
+            <div class="bar-track"><div class="bar-fill" style="width: 88%;"></div></div>
+            <div class="pct mono">88%</div>
+            <div class="drill mono">VIEW →</div>
+          </div>
+
+          <div class="unit-row">
+            <div>
+              <div class="unit-name">HHC</div>
+              <div class="unit-sub mono">HHC / 1-327 IN // 99 ASSIGNED</div>
+            </div>
+            <div class="bar-track"><div class="bar-fill" style="width: 84%;"></div></div>
+            <div class="pct mono">84%</div>
+            <div class="drill mono">VIEW →</div>
+          </div>
+
+          <div class="legend">
+            <div class="legend-item"><span class="legend-dot" style="background: var(--ok);"></span>&gt; 90%</div>
+            <div class="legend-item"><span class="legend-dot" style="background: var(--warn);"></span>80–90%</div>
+            <div class="legend-item"><span class="legend-dot" style="background: var(--danger);"></span>&lt; 80%</div>
+          </div>
+        </div>
+
+        <div class="card">
+          <div class="card-header">
+            <h3>Attention required</h3>
+            <div class="card-eyebrow mono">83 NON-DEPLOYABLE</div>
+          </div>
+
+          <div class="issue-row">
+            <div class="issue-icon high"></div>
+            <div>
+              <div class="issue-title">Dental Class 3 — blocking deployment</div>
+              <div class="issue-sub mono">14 SOLDIERS // B CO SIGNIFICANTLY AFFECTED</div>
+            </div>
+            <div class="issue-action">ROSTER →</div>
+          </div>
+
+          <div class="issue-row">
+            <div class="issue-icon high"></div>
+            <div>
+              <div class="issue-title">Behavioral health referral pending</div>
+              <div class="issue-sub mono">8 SOLDIERS // AVG 11 DAYS OPEN</div>
+            </div>
+            <div class="issue-action">ROSTER →</div>
+          </div>
+
+          <div class="issue-row">
+            <div class="issue-icon med"></div>
+            <div>
+              <div class="issue-title">PHA expired</div>
+              <div class="issue-sub mono">27 SOLDIERS // SCHEDULE SRP</div>
+            </div>
+            <div class="issue-action">ROSTER →</div>
+          </div>
+
+          <div class="issue-row">
+            <div class="issue-icon med"></div>
+            <div>
+              <div class="issue-title">Immunizations expired / incomplete</div>
+              <div class="issue-sub mono">19 SOLDIERS // ANTHRAX, TYPHOID, SMALLPOX</div>
+            </div>
+            <div class="issue-action">ROSTER →</div>
+          </div>
+
+          <div class="issue-row">
+            <div class="issue-icon med"></div>
+            <div>
+              <div class="issue-title">Pregnancy — non-deployable</div>
+              <div class="issue-sub mono">6 SOLDIERS // ROUTINE TRACKING</div>
+            </div>
+            <div class="issue-action">ROSTER →</div>
+          </div>
+
+          <div class="issue-row">
+            <div class="issue-icon low"></div>
+            <div>
+              <div class="issue-title">Profile — temporary restrictions</div>
+              <div class="issue-sub mono">9 SOLDIERS // EXPIRING WITHIN 30 DAYS</div>
+            </div>
+            <div class="issue-action">ROSTER →</div>
+          </div>
+        </div>
+      </div>
+
+      <div style="margin-top: 24px; display: grid; grid-template-columns: 1fr 1fr; gap: 24px;">
+        <div class="card">
+          <div class="card-header">
+            <h3>Deployable % — 90 day trend</h3>
+            <div class="card-eyebrow mono">1-327 IN</div>
+          </div>
+          <div class="trend-chart">
+            <svg viewBox="0 0 400 160" preserveAspectRatio="none">
+              <defs>
+                <linearGradient id="trendGrad" x1="0" x2="0" y1="0" y2="1">
+                  <stop offset="0%" stop-color="var(--accent)" stop-opacity="0.3"/>
+                  <stop offset="100%" stop-color="var(--accent)" stop-opacity="0"/>
+                </linearGradient>
+              </defs>
+              <!-- grid -->
+              <line x1="0" y1="40" x2="400" y2="40" stroke="var(--border)" stroke-width="1"/>
+              <line x1="0" y1="80" x2="400" y2="80" stroke="var(--border)" stroke-width="1"/>
+              <line x1="0" y1="120" x2="400" y2="120" stroke="var(--border)" stroke-width="1"/>
+              <!-- area -->
+              <path d="M0,55 L30,50 L60,48 L90,52 L120,45 L150,40 L180,38 L210,42 L240,50 L270,48 L300,55 L330,65 L360,75 L400,82 L400,160 L0,160 Z" fill="url(#trendGrad)"/>
+              <!-- line -->
+              <path d="M0,55 L30,50 L60,48 L90,52 L120,45 L150,40 L180,38 L210,42 L240,50 L270,48 L300,55 L330,65 L360,75 L400,82"
+                    fill="none" stroke="var(--accent)" stroke-width="2"/>
+              <!-- markers -->
+              <circle cx="400" cy="82" r="4" fill="var(--accent)"/>
+              <text x="380" y="70" fill="var(--accent)" font-family="JetBrains Mono" font-size="10" text-anchor="end">87.2%</text>
+            </svg>
+          </div>
+          <div class="legend">
+            <div class="legend-item">JAN</div>
+            <div class="legend-item" style="margin-left: auto;">APR</div>
+          </div>
+        </div>
+
+        <div class="card">
+          <div class="card-header">
+            <h3>Upcoming deployment window</h3>
+            <div class="card-eyebrow mono">EUCOM ROTATION</div>
+          </div>
+          <div style="padding: 10px 0;">
+            <div style="font-family: 'JetBrains Mono', monospace; font-size: 11px; color: var(--text-faint); letter-spacing: 0.1em;">N-DAY</div>
+            <div style="font-family: 'JetBrains Mono', monospace; font-size: 32px; font-weight: 700; color: var(--accent); margin: 4px 0;">N - 87</div>
+            <div style="font-size: 12px; color: var(--text-dim);">Pre-DHAs must be complete NLT N-30.</div>
+          </div>
+          <div style="margin-top: 16px; padding-top: 16px; border-top: 1px solid var(--border);">
+            <div style="display: grid; grid-template-columns: 1fr auto; gap: 8px; font-size: 12px; padding: 6px 0;">
+              <span style="color: var(--text-dim);">Pre-DHAs complete</span>
+              <span class="mono"><strong style="color: var(--text);">412</strong> / 648</span>
+            </div>
+            <div style="display: grid; grid-template-columns: 1fr auto; gap: 8px; font-size: 12px; padding: 6px 0;">
+              <span style="color: var(--text-dim);">Awaiting provider review</span>
+              <span class="mono"><strong style="color: var(--warn);">67</strong> / 648</span>
+            </div>
+            <div style="display: grid; grid-template-columns: 1fr auto; gap: 8px; font-size: 12px; padding: 6px 0;">
+              <span style="color: var(--text-dim);">Not started</span>
+              <span class="mono"><strong style="color: var(--danger);">169</strong> / 648</span>
+            </div>
+          </div>
+          <div style="margin-top: 16px; padding-top: 16px; border-top: 1px solid var(--border); display: flex; gap: 8px;">
+            <button class="btn-small primary" style="flex: 1;">EXPORT CUB BRIEF</button>
+            <button class="btn-small" style="flex: 1;">MESSAGE 1SG</button>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<div class="footer-note">
+  <div>DRP // DEPLOYMENT READINESS PLATFORM // DERP</div>
+  <div>MOCKUPS V0.1 // NO ACTUAL PHI OR PII</div>
+</div>
+
+</body>
+</html>
