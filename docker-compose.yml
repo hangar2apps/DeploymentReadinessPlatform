@@ -1,0 +1,29 @@
+# DRP deployment artifact — NOT used during development.
+  # Proves the app is containerized and portable. Services reach each other by
+  # service name (gateway -> rag-service:50051). No local DB: all services
+  # connect to the shared Supabase via env vars.
+
+  services:
+    rag-service:
+      build: ./rag-service
+      env_file: ./rag-service/.env
+      ports:
+        - "50051:50051"
+
+    gateway:
+      build: ./gateway
+      env_file: ./.env
+      environment:
+        PORT: 3000
+        GRPC_HOST: rag-service:50051
+      ports:
+        - "3000:3000"
+      depends_on:
+        - rag-service
+
+    frontend:
+      build: ./frontend
+      ports:
+        - "8080:80"
+      depends_on:
+        - gateway

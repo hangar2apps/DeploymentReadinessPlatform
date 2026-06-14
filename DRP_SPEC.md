@@ -189,7 +189,7 @@ Health screening mostly pauses unless something happens:
 | LLM | GPT-4o-mini (hackathon) | Fast, cheap, good for grounded Q&A; swap for LeapfrogAI-hosted model in production |
 | Auth (hackathon) | Mock CAC/SSO with role selection | Don't burn time on auth |
 | Auth (production) | Keycloak / CAC integration | Maps cleanly to UDS Core's Keycloak |
-| Dev workflow (hackathon) | Local processes (npm run dev, ts-node, python) | Each dev runs frontend + gateway locally, all pointing at shared Supabase. Fast iteration, minimal setup |
+| Dev workflow (hackathon) | Local processes (npm run dev, tsx, python) | Each dev runs frontend + gateway locally, all pointing at shared Supabase. Fast iteration, minimal setup |
 | Deployment artifact | Docker Compose | Proves the app is containerized and portable. Used for demo talking points and post-hackathon deployment, not for day-to-day development |
 | Deployment (production) | Containerized, UDS Army pipeline | IL4/IL5 inheritance |
 
@@ -500,7 +500,7 @@ Everyone develops locally against a shared Supabase database. No Docker during d
 ```
 React dev server (npm run dev)          ← each dev runs locally
       │
-Express gateway (npx ts-node server.ts) ← each dev runs locally
+Express gateway (npx tsx server.ts)     ← each dev runs locally
       │
 Supabase (cloud)                        ← shared by all three devs
 ```
@@ -584,8 +584,8 @@ Prepare in advance so the 3 days are spent on the product, not on scaffolding. E
 
 ### Repo & Boilerplate (do first)
 
-- [ ] Create GitHub repo with README, .gitignore, license
-- [ ] Set up monorepo structure:
+- [x] Create GitHub repo with README, .gitignore, license
+- [x] Set up monorepo structure:
   ```
   drp/
   ├── docker-compose.yml       # Deployment artifact — not used during development
@@ -596,22 +596,22 @@ Prepare in advance so the 3 days are spent on the product, not on scaffolding. E
       ├── migrations/          # SQL schema migrations
       └── seed/                # Seed data scripts
   ```
-- [ ] Docker Compose config for deployment artifact (all services containerized). Verify `docker compose up --build` starts everything clean. This is for the production story, not for daily dev.
-- [ ] Environment variable template (`.env.example`) with all required keys documented, including Supabase connection string
+- [x] Docker Compose config for deployment artifact (all services containerized). Verify `docker compose up --build` starts everything clean. This is for the production story, not for daily dev.
+- [x] Environment variable template (`.env.example`) with all required keys documented, including Supabase connection string
 
 ### Supabase Setup (shared development database)
 
-- [ ] Create Supabase project
-- [ ] Enable pgvector extension
-- [ ] Run schema migrations — tables for service_members, units, assessments, red_flags, readiness_snapshots, document_chunks
+- [x] Create Supabase project
+- [x] Enable pgvector extension
+- [x] Run schema migrations — tables for service_members, units, assessments, red_flags, readiness_snapshots, document_chunks
 - [ ] Verify teammates can connect with the shared connection string
-- [ ] Document connection details in `.env.example` (never commit actual credentials)
+- [x] Document connection details in `.env.example` (never commit actual credentials)
 
 ### Seed Data (critical — takes hours to do well)
 
-- [ ] Realistic battalion structure: 1-327 IN with HHC, Alpha, Bravo, Charlie, Delta companies
-- [ ] 50–100 fake service members with: name, rank, EDIPI, MOS, unit assignment
-- [ ] 15–20 pre-built assessment responses with varied outcomes:
+- [x] Realistic battalion structure: 1-327 IN with HHC, Alpha, Bravo, Charlie, Delta companies
+- [x] 50–100 fake service members with: name, rank, EDIPI, MOS, unit assignment
+- [x] 15–20 pre-built assessment responses with varied outcomes:
   - Clean assessments (deployable)
   - Elevated PHQ-9 scores (behavioral health flag)
   - Dental Class 3 (non-deployable)
@@ -619,21 +619,21 @@ Prepare in advance so the 3 days are spent on the product, not on scaffolding. E
   - Expired PHA
   - Pregnancy
   - Recent medication changes
-- [ ] Seed script that populates Supabase with one command (`node db/seed/run.js` or `psql` against the Supabase connection string)
+- [x] Seed script that populates Supabase with one command (`node db/seed/run.js` or `psql` against the Supabase connection string)
 - [ ] Verify the commander dashboard shows realistic data from seeds
 
 ### RAG Policy Documents (data, not code)
 
-- [ ] Download and prepare PDFs for ingestion:
+- [x] Download and prepare PDFs for ingestion:
   - DoDI 6490.03 (Deployment Health)
   - DAFI 48-122 (Air Force Deployment Health)
   - Dental readiness classification guide (Camp Lejeune IMR PDF + AR 40-35)
   - PHQ-9 scoring and interpretation guide
   - PCL-5 scoring and referral thresholds (VA National Center for PTSD)
   - Theater-specific immunization requirements (CENTCOM MOD 18)
-- [ ] Test ingestion through DocIntel — verify all documents chunk and embed cleanly
+- [x] Test ingestion through DocIntel — verify all documents chunk and embed cleanly
 - [ ] Write 10 test questions and verify quality of RAG answers
-- [ ] Embeddings stored in Supabase's pgvector — ingested once pre-hackathon, available to all teammates immediately
+- [x] Embeddings stored in Supabase's pgvector — ingested once pre-hackathon, available to all teammates immediately
 
 ### Design System (reusable, not product-specific)
 
@@ -643,15 +643,15 @@ Prepare in advance so the 3 days are spent on the product, not on scaffolding. E
 
 ### Proto Definitions
 
-- [ ] Write `.proto` files for DRP-specific services if using gRPC beyond the RAG service
-- [ ] Generate stubs for both Python and TypeScript
+- [x] Write `.proto` files for DRP-specific services if using gRPC beyond the RAG service
+- [x] Generate stubs for both Python and TypeScript
 - [ ] Verify gRPC communication works between gateway and RAG service locally
 
 ### Local Dev Environment (each teammate)
 
 - [ ] Verify Node.js 20+, Python 3.12+, Docker Desktop all current on hackathon machine
 - [ ] Clone the repo, copy `.env.example` to `.env`, fill in Supabase connection string and OpenAI API key
-- [ ] Verify `npm run dev` (frontend) and `npx ts-node server.ts` (gateway) start cleanly
+- [ ] Verify `npm run dev` (frontend) and `npx tsx server.ts` (gateway) start cleanly
 - [ ] Verify connection to shared Supabase instance
 - [ ] VS Code extensions: Tailwind IntelliSense, ESLint, Prettier, Python, Proto3
 
