@@ -32,13 +32,39 @@ export default function CommanderPage() {
   const [trend, setTrend] = useState<TrendPoint[]>([]);
   const [redFlags, setRedFlags] = useState<RedFlagSummaryItem[]>([]);
   const [drill, setDrill] = useState<CompanyRow | null>(null);
+  const [error, setError] = useState(false);
 
   useEffect(() => {
     const unit = persona.unit_id;
-    getReadiness(unit).then(setReadiness);
-    getReadinessTrend(unit, 90).then(setTrend);
-    getRedFlagSummary(unit).then(setRedFlags);
+    let active = true;
+    Promise.all([
+      getReadiness(unit),
+      getReadinessTrend(unit, 90),
+      getRedFlagSummary(unit),
+    ])
+      .then(([r, t, f]) => {
+        if (!active) return;
+        setReadiness(r);
+        setTrend(t);
+        setRedFlags(f);
+        setError(false);
+      })
+      .catch(() => {
+        if (active) setError(true);
+      });
+    return () => {
+      active = false;
+    };
   }, [persona.unit_id]);
+
+  if (error) {
+    return (
+      <div className="rounded-lg border border-danger/40 bg-danger/10 p-4 text-sm text-danger">
+        Couldn't load readiness data. Check that the gateway is running, then
+        reload.
+      </div>
+    );
+  }
 
   if (!readiness) {
     return <div className="text-sm text-muted">Loading readiness…</div>;

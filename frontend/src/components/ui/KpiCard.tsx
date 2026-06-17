@@ -25,8 +25,12 @@ export function KpiCard({
   hint?: ReactNode;
 }) {
   const deltaColor =
-    delta === undefined ? '' : delta >= 0 ? 'text-ok' : 'text-danger';
-  const arrow = delta === undefined ? '' : delta >= 0 ? '▲' : '▼';
+    delta === undefined || delta === 0
+      ? 'text-muted'
+      : delta > 0
+        ? 'text-ok'
+        : 'text-danger';
+  const arrow = delta === undefined || delta === 0 ? '▬' : delta > 0 ? '▲' : '▼';
 
   return (
     <div className="rounded-lg border border-border bg-surface p-4">

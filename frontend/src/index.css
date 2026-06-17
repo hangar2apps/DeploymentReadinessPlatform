@@ -1,6 +1,8 @@
 @import "tailwindcss";
 
-@import url('https://fonts.googleapis.com/css2?family=Sora:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500;700&display=swap');
+/* Fonts are self-hosted (see main.tsx) — no external CDN call. This app is
+   branded CUI; a googleapis.com request is a data-egress concern and breaks in
+   air-gapped/controlled environments. */
 
 @theme {
   /* surfaces */
@@ -23,9 +25,9 @@
   --color-sev-low: #60a5fa;
   --color-sev-none: #4ade80;
 
-  /* fonts — Sora body, JetBrains Mono for data/labels */
-  --font-sans: 'Sora', system-ui, sans-serif;
-  --font-mono: 'JetBrains Mono', ui-monospace, monospace;
+  /* fonts — Sora body, JetBrains Mono for data/labels (self-hosted variable) */
+  --font-sans: 'Sora Variable', 'Sora', system-ui, sans-serif;
+  --font-mono: 'JetBrains Mono Variable', 'JetBrains Mono', ui-monospace, monospace;
 }
 
 html, body, #root {

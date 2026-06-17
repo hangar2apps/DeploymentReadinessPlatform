@@ -4,8 +4,8 @@ import { SeverityBadge } from '../ui/Badge';
 export function AttentionRequired({ items }: { items: RedFlagSummaryItem[] }) {
   return (
     <div className="divide-y divide-border/60">
-      {items.map((item, i) => (
-        <div key={i} className="flex items-start gap-3 py-2.5 first:pt-0">
+      {items.map((item) => (
+        <div key={item.category} className="flex items-start gap-3 py-2.5 first:pt-0">
           <span className="mt-0.5 font-mono text-lg font-semibold tabular-nums text-ink">
             {item.soldier_count}
           </span>

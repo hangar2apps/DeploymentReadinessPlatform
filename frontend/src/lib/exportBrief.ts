@@ -23,7 +23,17 @@ export function exportCubBrief({
 }: BriefInput) {
   const doc = new jsPDF({ unit: 'pt', format: 'letter' });
   const W = doc.internal.pageSize.getWidth();
+  const H = doc.internal.pageSize.getHeight();
   const M = 48;
+
+  // jsPDF doesn't auto-paginate; break to a new page before y runs off the
+  // bottom so long company/flag lists don't overflow.
+  const ensureSpace = (needed: number) => {
+    if (y + needed > H - M) {
+      doc.addPage();
+      y = M;
+    }
+  };
 
   // CUI banner
   doc.setFillColor(197, 214, 74);
@@ -84,6 +94,7 @@ export function exportCubBrief({
   doc.setFont('courier', 'normal');
   doc.setFontSize(10);
   for (const c of readiness.by_company) {
+    ensureSpace(15);
     doc.setTextColor(90, 90, 90);
     doc.text(c.short_name.padEnd(8), M, y);
     doc.setTextColor(20, 20, 20);
@@ -101,6 +112,7 @@ export function exportCubBrief({
   doc.setFont('courier', 'normal');
   doc.setFontSize(10);
   for (const f of redFlags) {
+    ensureSpace(28);
     doc.setTextColor(20, 20, 20);
     doc.text(`${String(f.soldier_count).padStart(2)}  ${f.category}`, M, y);
     doc.setTextColor(90, 90, 90);

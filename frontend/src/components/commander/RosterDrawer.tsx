@@ -57,17 +57,31 @@ export function RosterDrawer({
   useEffect(() => {
     if (!company) return;
     let active = true;
-    getServiceMembers({ unit_id: company.unit_id, deployable: false }).then(
-      (m) => {
+    getServiceMembers({ unit_id: company.unit_id, deployable: false })
+      .then((m) => {
         if (!active) return;
         setMembers(m);
         setLoadedFor(company.unit_id);
-      },
-    );
+      })
+      .catch(() => {
+        if (!active) return;
+        setMembers([]);
+        setLoadedFor(company.unit_id);
+      });
     return () => {
       active = false;
     };
   }, [company]);
+
+  // Close on Escape while the drawer is open.
+  useEffect(() => {
+    if (!company) return;
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') onClose();
+    };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, [company, onClose]);
 
   const loading = !!company && loadedFor !== company.unit_id;
 
@@ -76,7 +90,12 @@ export function RosterDrawer({
   return (
     <div className="fixed inset-0 z-50 flex justify-end">
       <div className="absolute inset-0 bg-black/50" onClick={onClose} />
-      <div className="relative flex w-full max-w-xl flex-col border-l border-border bg-surface shadow-xl">
+      <div
+        role="dialog"
+        aria-modal="true"
+        aria-label={`${company.short_name} non-deployable roster`}
+        className="relative flex w-full max-w-xl flex-col border-l border-border bg-surface shadow-xl"
+      >
         <div className="flex items-center justify-between border-b border-border px-5 py-4">
           <div>
             <h2 className="text-lg font-semibold text-ink">
