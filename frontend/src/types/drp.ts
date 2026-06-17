@@ -49,6 +49,7 @@ export interface AssessmentResponses {
   dental_class?: 1 | 2 | 3 | 4;
   immunizations_current?: boolean;
   pregnancy?: boolean;
+  pregnancy_status?: 'yes' | 'no' | 'unknown';
   new_medication?: boolean;
   last_pha_date?: string; // YYYY-MM-DD
   phq9_q9?: number; // self-harm item, 0-3

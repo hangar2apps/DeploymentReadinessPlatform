@@ -101,6 +101,14 @@ export function getAssessment(id: string): Promise<AssessmentDetail> {
   return http(`/api/assessments/${id}`);
 }
 
+// Current-cycle assessment for the logged-in member (drives the landing
+// screen). Returns null when nothing is open -> NOT_STARTED. No gateway route
+// exists yet; the real shape would be GET /api/service-members/:id/assessment.
+export function getMyAssessment(memberId: string): Promise<Assessment | null> {
+  if (USE_MOCKS) return mock(fx.myAssessments[memberId] ?? null);
+  return http(`/api/service-members/${memberId}/assessment`);
+}
+
 export function createAssessment(input: CreateAssessmentInput): Promise<Assessment> {
   if (USE_MOCKS) {
     return mock({

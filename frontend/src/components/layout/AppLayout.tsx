@@ -1,6 +1,7 @@
 import { Navigate, Outlet, useLocation } from 'react-router-dom';
 import { CuiBar } from './CuiBar';
 import { Sidebar } from './Sidebar';
+import { DevTools } from './DevTools';
 import { useRole } from '../../context/RoleContext';
 import { useLayout } from '../../context/LayoutContext';
 
@@ -50,6 +51,7 @@ export function AppLayout() {
           </main>
         </div>
       </div>
+      {import.meta.env.DEV && <DevTools />}
     </div>
   );
 }
