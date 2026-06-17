@@ -1,4 +1,5 @@
-"""DRP Flask backend — application factory and entry point.
+"""
+DRP Flask backend — application factory and entry point.
 
 Mirrors the Express gateway's role from CLAUDE_CODE_BUILD.md: it serves the
 REST API for the three user surfaces (service member, provider, commander) and
@@ -11,6 +12,7 @@ Run locally:
 """
 
 from flask import Flask, jsonify
+from flask.wrappers import Response
 from flask_cors import CORS
 
 import config
@@ -34,7 +36,7 @@ def create_app() -> Flask:
     app.register_blueprint(chat_bp)
 
     @app.get("/api/health")
-    def health():
+    def health() -> Response:
         return jsonify({"status": "ok", "service": "drp-backend"})
 
     return app

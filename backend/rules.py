@@ -1,4 +1,5 @@
-"""Scoring + red-flag rule engine.
+"""
+Scoring + red-flag rule engine.
 
 Runs server-side when an assessment is submitted:
   1. score()        — derive PHQ-9 and PCL-5 totals from the raw responses
@@ -10,22 +11,31 @@ pure logic so it stays easy to test.
 """
 
 from datetime import datetime, timedelta, date
+from typing import Any, Tuple, Optional
+
+ResponseDict = dict[str, Any]
+FlagDict = dict[str, str]
 
 
-def score(responses):
-    """Return (phq9_score, pcl5_score) summed from the questionnaire answers.
+def score(responses: ResponseDict) -> Tuple[int, int]:
+    """
+    Return (phq9_score, pcl5_score) summed from the questionnaire answers.
 
     PHQ-9: keys phq9_q1..phq9_q9, each 0-3 (total 0-27).
     PCL-5: keys pcl5_q1..pcl5_q20, each 0-4 (total 0-80).
     Missing items count as 0 so a partial draft still scores.
     """
+
     phq9 = sum(int(responses.get(f"phq9_q{i}", 0) or 0) for i in range(1, 10))
     pcl5 = sum(int(responses.get(f"pcl5_q{i}", 0) or 0) for i in range(1, 21))
     return phq9, pcl5
 
 
-def _months_ago(date_str, months=12):
-    """True if date_str (ISO YYYY-MM-DD) is older than `months` months."""
+def _months_ago(date_str: str, months: int = 12) -> bool:
+    """
+    True if date_str (ISO YYYY-MM-DD) is older than `months` months.
+    """
+
     if not date_str:
         return False
     try:
@@ -36,22 +46,25 @@ def _months_ago(date_str, months=12):
     return d < (date.today() - timedelta(days=months * 30))
 
 
-def evaluate(responses, phq9_score, pcl5_score):
-    """Apply the red-flag rules. Returns a list of flag dicts ready to insert.
+def evaluate(
+    responses: ResponseDict,
+    phq9_score: int,
+    pcl5_score: int,
+) -> list[FlagDict]:
+    """
+    Apply the red-flag rules. Returns a list of flag dicts ready to insert.
 
     Each dict: {type, severity, rule_fired, message}.
     """
     flags = []
 
     def fire(type_, severity, rule_fired, message):
-        flags.append(
-            {
-                "type": type_,
-                "severity": severity,
-                "rule_fired": rule_fired,
-                "message": message,
-            }
-        )
+        flags.append({
+            "type": type_,
+            "severity": severity,
+            "rule_fired": rule_fired,
+            "message": message,
+        })
 
     # --- PHQ-9 depression ---
     if phq9_score >= 10:
@@ -90,11 +103,19 @@ def evaluate(responses, phq9_score, pcl5_score):
     # --- Dental ---
     dental_class = responses.get("dental_class")
     if dental_class == 3:
-        fire("DENTAL_CLASS_3", "HIGH", "responses.dental_class == 3",
-             "Dental Class 3 — non-deployable")
+        fire(
+            "DENTAL_CLASS_3",
+            "HIGH",
+            "responses.dental_class == 3",
+            "Dental Class 3 — non-deployable",
+        )
     elif dental_class == 4:
-        fire("DENTAL_CLASS_4", "HIGH", "responses.dental_class == 4",
-             "Dental Class 4 — requires dental exam")
+        fire(
+            "DENTAL_CLASS_4",
+            "HIGH",
+            "responses.dental_class == 4",
+            "Dental Class 4 — requires dental exam",
+        )
 
     # --- PHA / immunizations ---
     if _months_ago(responses.get("last_pha_date")):
@@ -106,18 +127,30 @@ def evaluate(responses, phq9_score, pcl5_score):
         )
 
     if responses.get("immunizations_current") is False:
-        fire("IMMUNIZATION_GAP", "MEDIUM", "responses.immunizations_current == false",
-             "Immunization records incomplete or expired")
+        fire(
+            "IMMUNIZATION_GAP",
+            "MEDIUM",
+            "responses.immunizations_current == false",
+            "Immunization records incomplete or expired",
+        )
 
     # --- Pregnancy ---
     if responses.get("pregnancy") is True:
-        fire("PREGNANCY", "HIGH", "responses.pregnancy == true",
-             "Pregnancy — automatic non-deployable")
+        fire(
+            "PREGNANCY",
+            "HIGH",
+            "responses.pregnancy == true",
+            "Pregnancy — automatic non-deployable",
+        )
 
     # --- Medication ---
     if responses.get("new_medication") is True:
-        fire("NEW_MEDICATION", "LOW", "responses.new_medication == true",
-             "New medication started — provider review recommended")
+        fire(
+            "NEW_MEDICATION",
+            "LOW",
+            "responses.new_medication == true",
+            "New medication started — provider review recommended",
+        )
 
     return flags
 
@@ -133,12 +166,14 @@ _REASON_BY_TYPE = {
 }
 
 
-def deployability(flags):
-    """Collapse flags into (deployable, deployable_reason).
+def deployability(flags: list[FlagDict]) -> Tuple[bool, Optional[str]]:
+    """
+    Collapse flags into (deployable, deployable_reason).
 
     Any HIGH-severity flag makes the member non-deployable. The reason is taken
     from the first HIGH flag that maps to a category.
     """
+
     high_flags = [f for f in flags if f["severity"] == "HIGH"]
     if not high_flags:
         return True, None

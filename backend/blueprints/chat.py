@@ -1,4 +1,5 @@
-"""AI chat routes.
+"""
+AI chat routes.
 
   POST /api/policy-chat     — RAG policy assistant (proxies to the Python gRPC service)
   POST /api/commander/chat  — commander data chat (SQL context -> LLM summary)
@@ -9,7 +10,9 @@ individuals or surface specific medical details.
 """
 
 import json
+from typing import Any, Tuple
 from flask import Blueprint, request, jsonify
+from flask.wrappers import Response
 
 import config
 import db
@@ -27,8 +30,11 @@ _HIPAA_GUARDRAIL = (
 
 
 @bp.post("/policy-chat")
-def policy_chat():
-    """Proxy a policy question to the RAG gRPC service and return answer + citations."""
+def policy_chat() -> Tuple[Response, int]:
+    """
+    Proxy a policy question to the RAG gRPC service and return answer + citations.
+    """
+
     body = request.get_json(silent=True) or {}
     question = (body.get("question") or "").strip()
     if not question:
@@ -38,11 +44,14 @@ def policy_chat():
         result = rag_client.ask_policy(question, max_chunks=body.get("max_chunks", 5))
     except Exception as e:  # gRPC service down / unreachable
         return jsonify({"error": f"policy assistant unavailable: {e}"}), 502
-    return jsonify(result)
+    return jsonify(result), 200
 
 
-def _commander_context(unit_id):
-    """Build a HIPAA-safe, aggregate snapshot of the unit for the LLM prompt."""
+def _commander_context(unit_id: str) -> dict[str, Any]:
+    """
+    Build a HIPAA-safe, aggregate snapshot of the unit for the LLM prompt.
+    """
+
     stats = readiness_stats(unit_id)
 
     companies = db.query(
@@ -71,12 +80,19 @@ def _commander_context(unit_id):
         (unit_id,),
     )
 
-    return {"battalion": stats, "by_company": by_company, "red_flags_by_category": red_flags}
+    return {
+        "battalion": stats,
+        "by_company": by_company,
+        "red_flags_by_category": red_flags,
+    }
 
 
 @bp.post("/commander/chat")
-def commander_chat():
-    """Answer a commander's data question by summarizing DB context via the LLM."""
+def commander_chat() -> Tuple[Response, int]:
+    """
+    Answer a commander's data question by summarizing DB context via the LLM.
+    """
+
     body = request.get_json(silent=True) or {}
     question = (body.get("question") or "").strip()
     if not question:
@@ -112,4 +128,10 @@ def commander_chat():
     except Exception as e:
         return jsonify({"error": f"LLM unavailable: {e}"}), 502
 
-    return jsonify({"answer": answer, "unit_id": unit_id, "context": context})
+    result = {
+        "answer": answer,
+        "unit_id": unit_id,
+        "context": context,
+    }
+
+    return jsonify(result), 200

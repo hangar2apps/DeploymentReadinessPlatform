@@ -1,4 +1,9 @@
 {
     "git.ignoreLimitWarning": true,
     "python.analysis.typeCheckingMode": "standard",
+    "cSpell.words": [
+        "edipi",
+        "PDHRA",
+        "rollup"
+    ]
 }
