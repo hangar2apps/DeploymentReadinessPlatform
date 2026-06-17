@@ -10,6 +10,7 @@
 
 import type {
   Assessment,
+  AssessmentResponses,
   AssessmentDetail,
   AssessmentListItem,
   AssessmentStatus,
@@ -104,6 +105,65 @@ export function getAssessments(
 export function getAssessment(id: string): Promise<AssessmentDetail> {
   if (USE_MOCKS) return mock(fx.assessmentDetails[id]);
   return http(`/api/assessments/${id}`);
+}
+
+// Current-cycle assessment for the landing screen. The backend has no dedicated
+// route; the member-detail endpoint returns the member with their assessments
+// (newest first), so we take the most recent.
+export async function getMyAssessment(
+  memberId: string,
+): Promise<Assessment | null> {
+  if (USE_MOCKS) return mock(fx.myAssessments[memberId] ?? null);
+  const member = await http<{ assessments?: Assessment[] }>(
+    `/api/service-members/${memberId}`,
+  );
+  return member.assessments?.[0] ?? null;
+}
+
+// ---- Draft persistence ------------------------------------------------------
+// In-progress answers, localStorage only. No backend draft endpoint exists yet;
+// when one lands (create-draft -> PATCH responses -> submit), implement it here
+// and the page is unchanged. `id` will carry the server assessment row then.
+export interface AssessmentDraft {
+  id?: string;
+  step: number;
+  responses: AssessmentResponses;
+  photoName: string | null;
+}
+
+const DRAFT_PREFIX = 'drp.assessment-draft.';
+const draftKey = (memberId: string) => `${DRAFT_PREFIX}${memberId}`;
+
+export function loadDraft(memberId: string): Promise<AssessmentDraft | null> {
+  const raw = localStorage.getItem(draftKey(memberId));
+  if (!raw) return Promise.resolve(null);
+  try {
+    return Promise.resolve(JSON.parse(raw) as AssessmentDraft);
+  } catch {
+    return Promise.resolve(null);
+  }
+}
+
+export function saveDraft(
+  memberId: string,
+  draft: AssessmentDraft,
+): Promise<void> {
+  localStorage.setItem(draftKey(memberId), JSON.stringify(draft));
+  return Promise.resolve();
+}
+
+export function clearDraft(memberId: string): Promise<void> {
+  localStorage.removeItem(draftKey(memberId));
+  return Promise.resolve();
+}
+
+// Drop every member's draft — used on logout so mental-health PHI doesn't
+// linger in localStorage on a shared machine.
+export function clearAllDrafts(): void {
+  for (let i = localStorage.length - 1; i >= 0; i--) {
+    const k = localStorage.key(i);
+    if (k?.startsWith(DRAFT_PREFIX)) localStorage.removeItem(k);
+  }
 }
 
 export function createAssessment(input: CreateAssessmentInput): Promise<Assessment> {
