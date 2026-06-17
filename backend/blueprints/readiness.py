@@ -1,16 +1,9 @@
-"""
-Readiness routes — battalion rollup, trend, and red-flag summary.
-
-Endpoints:
-  GET /api/readiness            — KPIs + readiness by company
-  GET /api/readiness/trend      — time-series for the dashboard chart
-  GET /api/red-flags/summary    — open red flags aggregated by category
-"""
+"""Readiness routes — battalion rollup, trend, and red-flag summary."""
 
 from datetime import date, timedelta
-from typing import Optional, Tuple
-from flask import Blueprint, request, jsonify
-from flask.wrappers import Response
+from typing import Optional
+
+from flask import Blueprint, jsonify, request
 
 import db
 from blueprints.units import readiness_stats
@@ -19,28 +12,20 @@ bp = Blueprint("readiness", __name__)
 
 
 def _default_unit_id() -> Optional[str]:
-    """
-    The battalion (top of the hierarchy) when no unit_id is supplied.
-    """
-
+    """The battalion (top of the hierarchy) when no unit_id is supplied."""
     row = db.query_one("SELECT id FROM units WHERE parent_unit_id IS NULL LIMIT 1")
     return str(row["id"]) if row else None
 
 
-@bp.get("/api/readiness")
-def readiness() -> Tuple[Response, int]:
-    """
-    KPI cards + per-company breakdown for the commander dashboard.
-    """
+def _unit_exists(unit_id: str) -> bool:
+    """True when the supplied unit id exists."""
+    row = db.query_one("SELECT id FROM units WHERE id = %s", (unit_id,))
+    return bool(row)
 
-    unit_id = request.args.get("unit_id") or _default_unit_id()
-    if not unit_id:
-        return jsonify({"error": "no units found"}), 404
 
-    stats = readiness_stats(unit_id)
-
-    # PDHRA compliance: share of members with a certified PDHRA assessment.
-    pdhra = db.query_one(
+def _pdhra_compliance(unit_id: str) -> float:
+    """Share of members in the unit subtree with a certified PDHRA."""
+    row = db.query_one(
         """
         WITH RECURSIVE subtree AS (
           SELECT id FROM units WHERE id = %s
@@ -58,68 +43,96 @@ def readiness() -> Tuple[Response, int]:
                AND a.type = 'PDHRA' AND a.status = 'CERTIFIED') AS compliant
         """,
         (unit_id,),
-    )
-    total = (pdhra["total"] or 0) if pdhra else 0
-    pdhra_pct = round(100.0 * (pdhra["compliant"] or 0) / total, 1) if pdhra and total else 0.0
+    ) or {"total": 0, "compliant": 0}
 
-    # Per-company breakdown (direct children of the requested unit).
-    companies = db.query(
-        "SELECT id, name, short_name FROM units WHERE parent_unit_id = %s ORDER BY name",
+    total = row["total"] or 0
+    compliant = row["compliant"] or 0
+    return round(100.0 * compliant / total, 1) if total else 0.0
+
+
+def _synthetic_delta_from_last_week(stats: dict[str, float | int]) -> float:
+    """Return a plausible demo delta in the absence of historical snapshots."""
+    if not stats["assigned"]:
+        return 0.0
+    return -4.3
+
+
+def _company_breakdown(unit_id: str) -> list[dict[str, str | int | float]]:
+    """Return direct-child company readiness in the agreed frontend shape."""
+    rows = db.query(
+        "SELECT id, short_name FROM units WHERE parent_unit_id = %s ORDER BY name",
         (unit_id,),
     )
-    by_company = []
-    for c in companies:
-        by_company.append({**c, "readiness": readiness_stats(str(c["id"]))})
+    companies = []
+    for row in rows:
+        stats = readiness_stats(str(row["id"]))
+        companies.append(
+            {
+                "unit_id": str(row["id"]),
+                "short_name": row["short_name"],
+                "assigned": stats["assigned"],
+                "deployable": stats["deployable"],
+                "pct": stats["deployable_pct"],
+            }
+        )
+    return companies
 
-    result = {
-        "unit_id": unit_id,
-        "kpis": {
-            "deployable_pct": stats["deployable_pct"],
+
+@bp.get("/api/readiness")
+def readiness():
+    """GET /api/readiness — KPI cards + per-company readiness."""
+    unit_id = request.args.get("unit_id") or _default_unit_id()
+    if not unit_id:
+        return jsonify({"error": "no units found"}), 404
+    if not _unit_exists(unit_id):
+        return jsonify({"error": "unit not found"}), 404
+
+    stats = readiness_stats(unit_id)
+    return jsonify(
+        {
+            "unit_id": unit_id,
             "total_assigned": stats["assigned"],
-            "non_deployable": stats["non_deployable"],
-            "pdhra_compliance_pct": pdhra_pct,
-        },
-        "by_company": by_company,
-    }
-
-    return jsonify(result), 200
+            "deployable_count": stats["deployable"],
+            "non_deployable_count": stats["non_deployable"],
+            "pct_deployable": stats["deployable_pct"],
+            "delta_from_last_week": _synthetic_delta_from_last_week(stats),
+            "pdhra_compliance_pct": _pdhra_compliance(unit_id),
+            "by_company": _company_breakdown(unit_id),
+        }
+    )
 
 
 @bp.get("/api/readiness/trend")
-def trend() -> Response:
-    """
-    Synthetic deployable-% time series ending today.
-
-    There is no historical snapshot table in the schema, so we derive a
-    plausible curve that lands on the unit's current deployable %. Replace with
-    a real daily-snapshot query once snapshots are persisted.
-    """
-
+def trend():
+    """GET /api/readiness/trend — synthetic deployable-% time series."""
     unit_id = request.args.get("unit_id") or _default_unit_id()
+    if not unit_id:
+        return jsonify({"error": "no units found"}), 404
+    if not _unit_exists(unit_id):
+        return jsonify({"error": "unit not found"}), 404
+
     days = int(request.args.get("days", 90))
-    current = readiness_stats(unit_id)["deployable_pct"] if unit_id else 0.0
+    current = readiness_stats(unit_id)["deployable_pct"]
 
     points = []
     today = date.today()
     for i in range(days, -1, -1):
         d = today - timedelta(days=i)
-        # Gentle ramp from ~6 points below current up to the current value.
         offset = 6.0 * (i / days) if days else 0.0
-        points.append({
-            "date": d.isoformat(),
-            "deployable_pct": round(current - offset, 1),
-        })
+        points.append({"date": d.isoformat(), "pct_deployable": round(current - offset, 1)})
 
-    return jsonify({"unit_id": unit_id, "days": days, "points": points})
+    return jsonify(points)
 
 
 @bp.get("/api/red-flags/summary")
-def red_flags_summary() -> Response:
-    """
-    Open red flags aggregated by type/category for the 'Attention Required' panel.
-    """
-
+def red_flags_summary():
+    """GET /api/red-flags/summary — open red flags aggregated by dashboard category."""
     unit_id = request.args.get("unit_id") or _default_unit_id()
+    if not unit_id:
+        return jsonify({"error": "no units found"}), 404
+    if not _unit_exists(unit_id):
+        return jsonify({"error": "unit not found"}), 404
+
     rows = db.query(
         """
         WITH RECURSIVE subtree AS (
@@ -128,22 +141,30 @@ def red_flags_summary() -> Response:
           SELECT u.id FROM units u JOIN subtree s ON u.parent_unit_id = s.id
         )
         SELECT
-          rf.type,
+          CASE
+            WHEN rf.type IN ('DENTAL_CLASS_3', 'DENTAL_CLASS_4') THEN 'Dental'
+            WHEN rf.type IN ('PHQ9_ELEVATED', 'PHQ9_SELF_HARM', 'PCL5_ELEVATED', 'PHQ9_MILD') THEN 'Behavioral Health'
+            WHEN rf.type = 'PREGNANCY' THEN 'Pregnancy'
+            WHEN rf.type = 'PHA_EXPIRED' THEN 'PHA'
+            WHEN rf.type = 'IMMUNIZATION_GAP' THEN 'Immunizations'
+            WHEN rf.type = 'NEW_MEDICATION' THEN 'Medication'
+            ELSE rf.type
+          END                                                    AS category,
           rf.severity,
-          COUNT(DISTINCT sm.id)                                AS soldier_count,
-          ARRAY_AGG(DISTINCT u.short_name)                     AS units,
-          MIN(rf.message)                                      AS sample_message
+          COUNT(DISTINCT sm.id)                                  AS soldier_count,
+          ARRAY_AGG(DISTINCT u.short_name ORDER BY u.short_name) AS units
         FROM red_flags rf
-        JOIN assessments a    ON a.id = rf.assessment_id
+        JOIN assessments a      ON a.id = rf.assessment_id
         JOIN service_members sm ON sm.id = a.service_member_id
-        JOIN units u          ON u.id = sm.unit_id
+        JOIN units u            ON u.id = sm.unit_id
         WHERE rf.resolved_at IS NULL
           AND sm.unit_id IN (SELECT id FROM subtree)
-        GROUP BY rf.type, rf.severity
+        GROUP BY category, rf.severity
         ORDER BY
           CASE rf.severity WHEN 'HIGH' THEN 0 WHEN 'MEDIUM' THEN 1 ELSE 2 END,
-          soldier_count DESC
+          soldier_count DESC,
+          category
         """,
         (unit_id,),
     )
-    return jsonify({"unit_id": unit_id, "categories": rows})
+    return jsonify(rows)

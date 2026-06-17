@@ -20,5 +20,7 @@ OPENAI_MODEL = os.environ.get("OPENAI_MODEL", "gpt-4o-mini")
 RAG_GRPC_TARGET = os.environ.get("RAG_GRPC_TARGET", "localhost:50051")
 
 # --- Server ---
+HOST = os.environ.get("BACKEND_HOST", "127.0.0.1")
 PORT = int(os.environ.get("BACKEND_PORT", "3000"))
 FRONTEND_ORIGIN = os.environ.get("FRONTEND_ORIGIN", "http://localhost:5173")
+DEBUG = os.environ.get("BACKEND_DEBUG", "").lower() in ("1", "true", "yes", "on")
