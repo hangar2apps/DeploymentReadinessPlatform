@@ -489,6 +489,39 @@ The pitch to judges, in order:
 
 ## 10. Team & Workload Split
 
+> **Updated to reflect the actual team (met on-site).** Five people: Bryan and
+> Derrick on frontend; three Defense Unicorns platform engineers (comfortable
+> with backend + Python) on backend. Per-person task files live in `team/`
+> (`TEAM_PLAN.md` is the master). The roles below supersede the earlier
+> three-person plan. Cody's original domain/QA role is folded into the team's
+> shared responsibility; the DU engineers also carry domain credibility.
+
+Five developers, 2.5 effective build days (Day 3 is 2 hours of polish + presentations).
+
+**Frontend (2):**
+- **Bryan** — app shell, routing, mock role switcher, design system, commander
+  dashboard + data-chat panel, PDF export (client-side). Also API contract
+  steward / data-model bridge. See `team/frontend-bryan.md`.
+- **Derrick** — service member questionnaire flow (+ doc upload) and provider
+  review queue (+ policy-chat panel). See `team/frontend-derrick.md`.
+
+**Backend (3 DU platform engineers):**
+- **Assessments + red-flag engine** — assessment CRUD, the rule engine, member
+  deployability. See `team/backend-assessments.md`.
+- **Readiness + commander data chat** — readiness rollups, trend, red-flag
+  summary, SQL→LLM data chat (HIPAA-constrained). See `team/backend-readiness-chat.md`.
+- **Foundation + RAG (coordinator)** — Express foundation + DB layer (Day 1 AM,
+  unblocks the others), gateway↔RAG gRPC + `/api/policy-chat`, runs the RAG
+  service + Docker. See `team/backend-foundation-rag.md`.
+
+**The #1 coordination rule:** with 2 frontend devs building against 3 backend
+devs, lock the API contract Day 1 AM. Frontend builds against the agreed shapes
+(mocking if needed); backend implements behind them.
+
+---
+
+### Original three-person plan (superseded — kept for reference)
+
 Three developers, 2.5 effective build days (Day 3 is 2 hours of polish + presentations).
 
 ### Development Workflow
