@@ -19,14 +19,9 @@ import type {
   SetResponse,
 } from '../components/assessment/types';
 import { fullResponses, partialResponses } from '../lib/assessmentDev';
-import { PHQ9_ITEMS, PCL5_ITEMS } from '../lib/questionnaire';
 
 type Status = Assessment['status'] | 'NOT_STARTED';
 type Phase = 'landing' | 'form' | 'submitted';
-
-const PHQ9_START = 4;
-const TOTAL_SCREENS = PHQ9_START + PHQ9_ITEMS.length + PCL5_ITEMS.length + 3;
-const PARTIAL_RESUME_INDEX = PHQ9_START + 4;
 
 export default function AssessmentPage() {
   const persona = usePersona();
@@ -82,6 +77,7 @@ export default function AssessmentPage() {
   const sections = useMemo<SectionDef[]>(
     () =>
       buildSections({ responses, set, persona, photoName, onPhoto: handlePhoto }),
+    // `set`/`handlePhoto` are stable updaters; only data deps matter here.
     // eslint-disable-next-line react-hooks/exhaustive-deps
     [responses, photoName, persona],
   );
@@ -112,6 +108,11 @@ export default function AssessmentPage() {
         complete: s.screens.every((scr) => scr.done),
       })),
     [sections],
+  );
+
+  const phq9Start = useMemo(
+    () => navSections.find((s) => s.key === 'phq9')?.startIndex ?? 0,
+    [navSections],
   );
 
   async function handleSubmit() {
@@ -148,15 +149,15 @@ export default function AssessmentPage() {
     setPhotoName(null);
     setStatus('DRAFT');
     setPhase('form');
-    setStep(PARTIAL_RESUME_INDEX);
-  }, []);
+    setStep(phq9Start + 4);
+  }, [phq9Start]);
   const devDone = useCallback(() => {
     setResponses(fullResponses());
     setPhotoName(null);
     setStatus('DRAFT');
     setPhase('form');
-    setStep(TOTAL_SCREENS - 1);
-  }, []);
+    setStep(flat.length - 1);
+  }, [flat.length]);
 
   useEffect(() => {
     if (!import.meta.env.DEV) return;

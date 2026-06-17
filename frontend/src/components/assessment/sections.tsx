@@ -21,7 +21,6 @@ import {
   PHQ9_ITEMS,
   PHQ9_PROMPT,
   PHQ9_SCALE,
-  PHQ9_SELF_HARM_INDEX,
   PCL5_ITEMS,
   PCL5_PROMPT,
   PCL5_SCALE,
@@ -55,12 +54,7 @@ function scaleScreens(
           question={question}
           options={scale}
           value={value}
-          onChange={(v) => {
-            set(key, v);
-            if (prefix === 'phq9' && i === PHQ9_SELF_HARM_INDEX) {
-              set('phq9_q9', v);
-            }
-          }}
+          onChange={(v) => set(key, v)}
         />
       ),
     };
@@ -142,7 +136,7 @@ export function buildSections({
       screens: [
         {
           key: 'concerns',
-          done: concernsDone(r),
+          done: concernsDone(),
           node: <ConcernsStep r={r} set={set} />,
         },
       ],

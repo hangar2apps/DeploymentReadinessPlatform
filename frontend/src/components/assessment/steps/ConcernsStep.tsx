@@ -32,7 +32,8 @@ export function ConcernsStep({
           value={r.pregnancy_status}
           onChange={(v) => {
             set('pregnancy_status', v);
-            set('pregnancy', v === 'yes');
+            // Don't record "Don't know" as not-pregnant; leave the boolean unset.
+            set('pregnancy', v === 'yes' ? true : v === 'no' ? false : undefined);
           }}
         />
       </Field>

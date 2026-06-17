@@ -15,8 +15,9 @@ export const dentalDone = (r: AssessmentResponses) => r.dental_class !== undefin
 export const immunizationDone = (r: AssessmentResponses) =>
   r.immunizations_current !== undefined;
 
-export const concernsDone = (r: AssessmentResponses) =>
-  r.pregnancy_status !== undefined;
+// Concerns + pregnancy are voluntary (DD2795 pregnancy item is FEMALES ONLY and
+// we hold no sex to gate on) — nothing here blocks advancing.
+export const concernsDone = () => true;
 
 export const attestationDone = (r: AssessmentResponses) =>
   r.attestation === true;

@@ -5,6 +5,7 @@
 import { createContext, useContext, useMemo, useState } from 'react';
 import type { ReactNode } from 'react';
 import { PERSONAS, type Persona, type Role } from '../lib/roles';
+import { clearAllDrafts } from '../services/api';
 
 const STORAGE_KEY = 'drp.role';
 
@@ -34,6 +35,7 @@ export function RoleProvider({ children }: { children: ReactNode }) {
         setRole(r);
       },
       logout: () => {
+        clearAllDrafts();
         localStorage.removeItem(STORAGE_KEY);
         setRole(null);
       },

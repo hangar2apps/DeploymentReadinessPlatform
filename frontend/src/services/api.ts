@@ -102,19 +102,23 @@ export function getAssessment(id: string): Promise<AssessmentDetail> {
   return http(`/api/assessments/${id}`);
 }
 
-// Current-cycle assessment for the logged-in member (drives the landing
-// screen). Returns null when nothing is open -> NOT_STARTED. No gateway route
-// exists yet; the real shape would be GET /api/service-members/:id/assessment.
-export function getMyAssessment(memberId: string): Promise<Assessment | null> {
+// Current-cycle assessment for the landing screen. The backend has no dedicated
+// route; the member-detail endpoint returns the member with their assessments
+// (newest first), so we take the most recent.
+export async function getMyAssessment(
+  memberId: string,
+): Promise<Assessment | null> {
   if (USE_MOCKS) return mock(fx.myAssessments[memberId] ?? null);
-  return http(`/api/service-members/${memberId}/assessment`);
+  const member = await http<{ assessments?: Assessment[] }>(
+    `/api/service-members/${memberId}`,
+  );
+  return member.assessments?.[0] ?? null;
 }
 
 // ---- Draft persistence ------------------------------------------------------
-// In-progress questionnaire answers. Backed by localStorage today; when the
-// backend gains a draft endpoint (create-draft -> PATCH responses -> submit),
-// swap these three impls and the page is unchanged. `id` carries the server
-// assessment row once that exists.
+// In-progress answers, localStorage only. No backend draft endpoint exists yet;
+// when one lands (create-draft -> PATCH responses -> submit), implement it here
+// and the page is unchanged. `id` will carry the server assessment row then.
 export interface AssessmentDraft {
   id?: string;
   step: number;
@@ -122,43 +126,39 @@ export interface AssessmentDraft {
   photoName: string | null;
 }
 
-const draftKey = (memberId: string) => `drp.assessment-draft.${memberId}`;
+const DRAFT_PREFIX = 'drp.assessment-draft.';
+const draftKey = (memberId: string) => `${DRAFT_PREFIX}${memberId}`;
 
 export function loadDraft(memberId: string): Promise<AssessmentDraft | null> {
-  if (USE_MOCKS) {
-    const raw = localStorage.getItem(draftKey(memberId));
-    if (!raw) return mock(null, 0);
-    try {
-      return mock(JSON.parse(raw) as AssessmentDraft, 0);
-    } catch {
-      return mock(null, 0);
-    }
+  const raw = localStorage.getItem(draftKey(memberId));
+  if (!raw) return Promise.resolve(null);
+  try {
+    return Promise.resolve(JSON.parse(raw) as AssessmentDraft);
+  } catch {
+    return Promise.resolve(null);
   }
-  return http(`/api/service-members/${memberId}/assessment-draft`);
 }
 
 export function saveDraft(
   memberId: string,
   draft: AssessmentDraft,
 ): Promise<void> {
-  if (USE_MOCKS) {
-    localStorage.setItem(draftKey(memberId), JSON.stringify(draft));
-    return mock(undefined, 0);
-  }
-  return http(`/api/service-members/${memberId}/assessment-draft`, {
-    method: 'PUT',
-    body: JSON.stringify(draft),
-  });
+  localStorage.setItem(draftKey(memberId), JSON.stringify(draft));
+  return Promise.resolve();
 }
 
 export function clearDraft(memberId: string): Promise<void> {
-  if (USE_MOCKS) {
-    localStorage.removeItem(draftKey(memberId));
-    return mock(undefined, 0);
+  localStorage.removeItem(draftKey(memberId));
+  return Promise.resolve();
+}
+
+// Drop every member's draft — used on logout so mental-health PHI doesn't
+// linger in localStorage on a shared machine.
+export function clearAllDrafts(): void {
+  for (let i = localStorage.length - 1; i >= 0; i--) {
+    const k = localStorage.key(i);
+    if (k?.startsWith(DRAFT_PREFIX)) localStorage.removeItem(k);
   }
-  return http(`/api/service-members/${memberId}/assessment-draft`, {
-    method: 'DELETE',
-  });
 }
 
 export function createAssessment(input: CreateAssessmentInput): Promise<Assessment> {
