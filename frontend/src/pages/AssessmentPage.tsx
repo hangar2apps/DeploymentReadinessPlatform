@@ -1,6 +1,12 @@
 import { Activity, useCallback, useEffect, useMemo, useState } from 'react';
 import type { Assessment, AssessmentResponses } from '../types/drp';
-import { createAssessment, getMyAssessment } from '../services/api';
+import {
+  createAssessment,
+  getMyAssessment,
+  loadDraft,
+  saveDraft,
+  clearDraft,
+} from '../services/api';
 import { usePersona } from '../context/RoleContext';
 import { useDev } from '../context/DevContext';
 import { Card } from '../components/ui/Card';
@@ -17,13 +23,6 @@ import { PHQ9_ITEMS, PCL5_ITEMS } from '../lib/questionnaire';
 
 type Status = Assessment['status'] | 'NOT_STARTED';
 type Phase = 'landing' | 'form' | 'submitted';
-
-interface Draft {
-  step: number;
-  responses: AssessmentResponses;
-  photoName: string | null;
-}
-const draftKey = (memberId: string) => `drp.assessment-draft.${memberId}`;
 
 const PHQ9_START = 4;
 const TOTAL_SCREENS = PHQ9_START + PHQ9_ITEMS.length + PCL5_ITEMS.length + 3;
@@ -42,26 +41,22 @@ export default function AssessmentPage() {
   useEffect(() => {
     let active = true;
     getMyAssessment(persona.member_id)
-      .then((a) => {
+      .then(async (a) => {
         if (!active) return;
         if (a) {
           setStatus(a.status);
           return;
         }
-        const raw = localStorage.getItem(draftKey(persona.member_id));
-        if (raw) {
-          try {
-            const d = JSON.parse(raw) as Draft;
-            setResponses(d.responses ?? {});
-            setPhotoName(d.photoName ?? null);
-            setStep(d.step ?? 0);
-            setStatus('DRAFT');
-            return;
-          } catch {
-            /* fall through */
-          }
+        const d = await loadDraft(persona.member_id);
+        if (!active) return;
+        if (d) {
+          setResponses(d.responses ?? {});
+          setPhotoName(d.photoName ?? null);
+          setStep(d.step ?? 0);
+          setStatus('DRAFT');
+        } else {
+          setStatus('NOT_STARTED');
         }
-        setStatus('NOT_STARTED');
       })
       .catch(() => {
         if (active) setStatus('NOT_STARTED');
@@ -73,8 +68,7 @@ export default function AssessmentPage() {
 
   useEffect(() => {
     if (phase !== 'form') return;
-    const draft: Draft = { step, responses, photoName };
-    localStorage.setItem(draftKey(persona.member_id), JSON.stringify(draft));
+    void saveDraft(persona.member_id, { step, responses, photoName });
   }, [phase, step, responses, photoName, persona.member_id]);
 
   const set: SetResponse = (key, value) =>
@@ -130,7 +124,7 @@ export default function AssessmentPage() {
         responses,
       });
       setStatus(created.status);
-      localStorage.removeItem(draftKey(persona.member_id));
+      void clearDraft(persona.member_id);
       setPhase('submitted');
     } catch {
       setError('Could not submit. Check the gateway is running and try again.');
@@ -147,7 +141,7 @@ export default function AssessmentPage() {
     setStep(0);
     setStatus('NOT_STARTED');
     setPhase('landing');
-    localStorage.removeItem(draftKey(persona.member_id));
+    void clearDraft(persona.member_id);
   }, [persona.member_id]);
   const devPartial = useCallback(() => {
     setResponses(partialResponses());

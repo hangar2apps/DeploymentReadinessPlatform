@@ -10,6 +10,7 @@
 
 import type {
   Assessment,
+  AssessmentResponses,
   AssessmentDetail,
   AssessmentListItem,
   AssessmentStatus,
@@ -107,6 +108,57 @@ export function getAssessment(id: string): Promise<AssessmentDetail> {
 export function getMyAssessment(memberId: string): Promise<Assessment | null> {
   if (USE_MOCKS) return mock(fx.myAssessments[memberId] ?? null);
   return http(`/api/service-members/${memberId}/assessment`);
+}
+
+// ---- Draft persistence ------------------------------------------------------
+// In-progress questionnaire answers. Backed by localStorage today; when the
+// backend gains a draft endpoint (create-draft -> PATCH responses -> submit),
+// swap these three impls and the page is unchanged. `id` carries the server
+// assessment row once that exists.
+export interface AssessmentDraft {
+  id?: string;
+  step: number;
+  responses: AssessmentResponses;
+  photoName: string | null;
+}
+
+const draftKey = (memberId: string) => `drp.assessment-draft.${memberId}`;
+
+export function loadDraft(memberId: string): Promise<AssessmentDraft | null> {
+  if (USE_MOCKS) {
+    const raw = localStorage.getItem(draftKey(memberId));
+    if (!raw) return mock(null, 0);
+    try {
+      return mock(JSON.parse(raw) as AssessmentDraft, 0);
+    } catch {
+      return mock(null, 0);
+    }
+  }
+  return http(`/api/service-members/${memberId}/assessment-draft`);
+}
+
+export function saveDraft(
+  memberId: string,
+  draft: AssessmentDraft,
+): Promise<void> {
+  if (USE_MOCKS) {
+    localStorage.setItem(draftKey(memberId), JSON.stringify(draft));
+    return mock(undefined, 0);
+  }
+  return http(`/api/service-members/${memberId}/assessment-draft`, {
+    method: 'PUT',
+    body: JSON.stringify(draft),
+  });
+}
+
+export function clearDraft(memberId: string): Promise<void> {
+  if (USE_MOCKS) {
+    localStorage.removeItem(draftKey(memberId));
+    return mock(undefined, 0);
+  }
+  return http(`/api/service-members/${memberId}/assessment-draft`, {
+    method: 'DELETE',
+  });
 }
 
 export function createAssessment(input: CreateAssessmentInput): Promise<Assessment> {
