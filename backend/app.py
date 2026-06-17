@@ -1,9 +1,7 @@
 """
 DRP Flask backend — application factory and entry point.
 
-Mirrors the Express gateway's role from CLAUDE_CODE_BUILD.md: it serves the
-REST API for the three user surfaces (service member, provider, commander) and
-proxies the policy assistant to the Python gRPC RAG service.
+Mirrors the Express gateway's role from CLAUDE_CODE_BUILD.md: it serves the REST API for the three user surfaces (service member, provider, commander) and runs the policy assistant's RAG pipeline in-process (see rag.py).
 
 Run locally:
     cd backend
@@ -28,12 +26,14 @@ def create_app() -> Flask:
     from blueprints.units import bp as units_bp
     from blueprints.readiness import bp as readiness_bp
     from blueprints.chat import bp as chat_bp
+    from blueprints.documents import bp as documents_bp
 
     app.register_blueprint(assessments_bp)
     app.register_blueprint(service_members_bp)
     app.register_blueprint(units_bp)
     app.register_blueprint(readiness_bp)
     app.register_blueprint(chat_bp)
+    app.register_blueprint(documents_bp)
 
     @app.get("/api/health")
     def health() -> Response:

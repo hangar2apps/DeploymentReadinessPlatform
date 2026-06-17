@@ -1,12 +1,10 @@
 """
 AI chat routes.
 
-  POST /api/policy-chat     — RAG policy assistant (proxies to the Python gRPC service)
+  POST /api/policy-chat     — RAG policy assistant (in-process RAG over policy docs)
   POST /api/commander/chat  — commander data chat (SQL context -> LLM summary)
 
-The commander chat queries the DRP database (NOT the policy documents) and is
-bound by a HIPAA instruction: summarize by category and count, never name
-individuals or surface specific medical details.
+The commander chat queries the DRP database (NOT the policy documents) and is bound by a HIPAA instruction: summarize by category and count, never name individuals or surface specific medical details.
 """
 
 import json
@@ -16,23 +14,19 @@ from flask.wrappers import Response
 
 import config
 import db
-import rag_client
+import rag
 from blueprints.units import readiness_stats
 
 bp = Blueprint("chat", __name__, url_prefix="/api")
 
-_HIPAA_GUARDRAIL = (
-    "You are a readiness analyst assistant for a battalion commander. "
-    "Answer using ONLY the structured data provided. "
-    "Summarize by category and count. Do NOT include individual names, EDIPIs, "
-    "or specific medical details. If the data does not cover the question, say so."
-)
+# This is here in case the provider adds some HIPPA data in there.  There won't be any data coming from this application directly.
+_HIPAA_GUARDRAIL = "You are a readiness analyst assistant for a battalion commander. Answer using ONLY the structured data provided. Summarize by category and count. Do NOT include individual names, EDIPIs, or specific medical details. If the data does not cover the question, say so."
 
 
 @bp.post("/policy-chat")
 def policy_chat() -> Tuple[Response, int]:
     """
-    Proxy a policy question to the RAG gRPC service and return answer + citations.
+    Answer a policy question via in-process RAG and return answer + citations.
     """
 
     body = request.get_json(silent=True) or {}
@@ -41,8 +35,8 @@ def policy_chat() -> Tuple[Response, int]:
         return jsonify({"error": "question is required"}), 400
 
     try:
-        result = rag_client.ask_policy(question, max_chunks=body.get("max_chunks", 5))
-    except Exception as e:  # gRPC service down / unreachable
+        result = rag.ask_policy(question, max_chunks=body.get("max_chunks", 5))
+    except Exception as e:  # DB or OpenAI unreachable
         return jsonify({"error": f"policy assistant unavailable: {e}"}), 502
     return jsonify(result), 200
 

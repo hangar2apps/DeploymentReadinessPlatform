@@ -1,8 +1,8 @@
 # DRP Backend (Flask)
 
-Flask implementation of the DRP API gateway. Serves the REST API for the three user surfaces (service member, provider, commander) and proxies the policy assistant to the Python gRPC RAG service.
+Flask implementation of the DRP API gateway. Serves the REST API for the three user surfaces (service member, provider, commander) and runs the policy-assistant RAG pipeline in-process (PDF ingest, embedding, pgvector retrieval, grounded Q&A).
 
-> This is the Flask [`../gateway`](../gateway).  It implements every route in [`../docs/API Routes.md`](../docs/API%20Routes.md) and the data model / rules from [`../CLAUDE_CODE_BUILD.md`](../CLAUDE_CODE_BUILD.md).
+> This is the Flask gateway.  It implements every route in [`../docs/API Routes.md`](../docs/API%20Routes.md) and the data model / rules from [`../CLAUDE_CODE_BUILD.md`](../CLAUDE_CODE_BUILD.md).
 
 ## Run locally
 
@@ -12,7 +12,7 @@ uv sync                  # create .venv and install from pyproject.toml / uv.loc
 uv run python app.py     # -> http://localhost:3000
 ```
 
-Reads the shared root `.env` (`SUPABASE_CONNECTION_STRING`, `OPENAI_API_KEY`). The policy assistant additionally needs the RAG gRPC service running on `localhost:50051` (`cd ../rag-service && python server.py`).
+Reads the shared root `.env` (`SUPABASE_CONNECTION_STRING`, `OPENAI_API_KEY`). The policy assistant runs in-process — no separate service to start. On first document ingest it creates the pgvector extension and `document_chunks` table in the shared Supabase database.
 
 ## Database connectivity note
 
@@ -39,8 +39,10 @@ postgresql://postgres.<project>:<password>@aws-0-<region>.pooler.supabase.com:54
 | GET    | `/api/readiness`               | KPI cards + per-company readiness                             |
 | GET    | `/api/readiness/trend`         | Time-series for the trend chart                               |
 | GET    | `/api/red-flags/summary`       | Open red flags aggregated by category                         |
-| POST   | `/api/policy-chat`             | RAG policy assistant (proxies gRPC)                           |
+| POST   | `/api/policy-chat`             | RAG policy assistant (in-process RAG over policy docs)        |
 | POST   | `/api/commander/chat`          | Commander data chat (SQL context → LLM)                       |
+| POST   | `/api/documents`               | Ingest a PDF (base64 JSON or multipart `file`) → chunk + embed |
+| GET    | `/api/documents`               | List ingested documents with chunk counts                     |
 
 ## Layout
 
@@ -48,9 +50,8 @@ postgresql://postgres.<project>:<password>@aws-0-<region>.pooler.supabase.com:54
 - `config.py` — loads the shared root `.env`
 - `db.py` — psycopg2 connection pool + dict-row query helpers
 - `rules.py` — PHQ-9/PCL-5 scoring and the red-flag rule engine (pure logic)
-- `rag_client.py` — gRPC client for the policy assistant
-- `docintel_pb2*.py` — generated gRPC stubs (copied from `../rag-service`)
-- `blueprints/` — one module per resource (assessments, service_members, units, readiness, chat)
+- `rag.py` — in-process RAG pipeline (ingest, embed, pgvector retrieval, grounded Q&A)
+- `blueprints/` — one module per resource (assessments, service_members, units, readiness, chat, documents)
 
 ## Notes / TODO
 
