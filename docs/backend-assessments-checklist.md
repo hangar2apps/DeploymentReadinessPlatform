@@ -77,24 +77,24 @@ Last updated: 2026-06-17.
 
 ## Acceptance Test (seed fixture)
 
-- [x] Unit test coverage for all 10 rules — 75/75 passing
+- [x] Unit test coverage for all 10 rules
   [`tests/test_rules.py`](../backend/tests/test_rules.py)
 - [x] 10 seed scenario cases pass (Bailey, Mitchell, Holt, Coleman, Nguyen, Foster, Marsh, Castillo, Vargas, Reyes)
   [`tests/test_rules.py:226-315`](../backend/tests/test_rules.py#L226-L315)
-- [ ] Spec requires **12 non-deployable soldiers** reproduced — `SEED_CASES` has 10 entries; 2 cases missing
-- [ ] Spec requires **17 hand-authored `red_flags`** reproduced — total flag count not validated in tests
+- [ ] Spec requires **12 non-deployable soldiers** reproduced — `SEED_CASES` only has 10 entries; 2 cases are missing
+- [ ] Spec requires **17 hand-authored `red_flags`** reproduced — total flag count not validated anywhere in the tests
 
 ---
 
 ## Gotchas from the spec
 
 - [x] Vanilla Postgres / parameterized SQL (no Supabase SDK) — `%s` placeholders used throughout
-- [ ] `certify` must check for remaining open HIGH flags before setting `deployable=true` — **not implemented**
+- [ ] `certify` must check for remaining open HIGH flags before setting `deployable=true` — **not implemented**  (see Endpoints section above)
 - [ ] Coordinate response shapes with Bryan (contract steward) — out of scope for this checklist
 
 ---
 
-## Remaining gaps
+##  Summary of gaps
 
 | # | Gap | File | Notes |
 |---|---|---|---|
