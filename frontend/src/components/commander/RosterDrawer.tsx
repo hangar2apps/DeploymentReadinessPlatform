@@ -49,15 +49,27 @@ export function RosterDrawer({
   onClose: () => void;
 }) {
   const [members, setMembers] = useState<ServiceMember[]>([]);
-  const [loading, setLoading] = useState(false);
+  // Track which company the loaded members belong to so `loading` is derived,
+  // not set synchronously in the effect (react-hooks/set-state-in-effect). The
+  // active flag drops out-of-order responses from rapid company switching.
+  const [loadedFor, setLoadedFor] = useState<string | null>(null);
 
   useEffect(() => {
     if (!company) return;
-    setLoading(true);
-    getServiceMembers({ unit_id: company.unit_id, deployable: false })
-      .then(setMembers)
-      .finally(() => setLoading(false));
+    let active = true;
+    getServiceMembers({ unit_id: company.unit_id, deployable: false }).then(
+      (m) => {
+        if (!active) return;
+        setMembers(m);
+        setLoadedFor(company.unit_id);
+      },
+    );
+    return () => {
+      active = false;
+    };
   }, [company]);
+
+  const loading = !!company && loadedFor !== company.unit_id;
 
   if (!company) return null;
 

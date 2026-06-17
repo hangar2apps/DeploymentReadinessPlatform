@@ -24,7 +24,6 @@ export function exportCubBrief({
   const doc = new jsPDF({ unit: 'pt', format: 'letter' });
   const W = doc.internal.pageSize.getWidth();
   const M = 48;
-  let y = 0;
 
   // CUI banner
   doc.setFillColor(197, 214, 74);
@@ -38,7 +37,7 @@ export function exportCubBrief({
     14,
     { align: 'center' },
   );
-  y = 56;
+  let y = 56;
 
   // Title
   doc.setTextColor(20, 20, 20);
