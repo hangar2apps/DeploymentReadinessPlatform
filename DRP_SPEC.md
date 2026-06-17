@@ -223,7 +223,6 @@ readiness_snapshots (computed/cached)
 ### 4.3 Red-Flag Rules (Configurable)
 
 Start with a hard-coded rule set, structure it so rules can be DB-driven later:
-
 - **Mental health**: PHQ-9 ≥ 10, PCL-5 ≥ 33, any self-harm ideation response → HIGH
 - **Immunizations**: Any required vaccine expired or missing → MEDIUM
 - **PHA**: Periodic Health Assessment > 12 months old → MEDIUM
