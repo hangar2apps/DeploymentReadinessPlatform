@@ -1,22 +1,22 @@
 # Backend Assessments — Implementation Checklist
 
-Status as of 2026-06-17. Tracks spec requirements from `team/backend-assessments.md`
-against what is implemented in the Flask backend.
+Tracks spec requirements from `team/backend-assessments.md` against the Flask backend.
+Last updated: 2026-06-17.
 
 ---
 
 ## Endpoints
 
-- [x] `GET /api/assessments?status=&unit_id=&type=` — list with member + unit join, red flags array
-  [`blueprints/assessments.py:35-63`](../backend/blueprints/assessments.py#L35-L63)
-- [x] `GET /api/assessments/:id` — detail with member, unit, and flags
-  [`blueprints/assessments.py:66-73`](../backend/blueprints/assessments.py#L66-L73)
+- [x] `GET /api/assessments?status=&unit_id=&type=` — list with nested member/unit, flags array
+  [`blueprints/assessments.py:69-101`](../backend/blueprints/assessments.py#L69-L101)
+- [x] `GET /api/assessments/:id` — detail with nested member/unit, flags array
+  [`blueprints/assessments.py:103-115`](../backend/blueprints/assessments.py#L103-L115)
 - [x] `POST /api/assessments` — create/submit → scores + runs rule engine
-  [`blueprints/assessments.py:76-123`](../backend/blueprints/assessments.py#L76-L123)
+  [`blueprints/assessments.py:116-167`](../backend/blueprints/assessments.py#L116-L167)
 - [ ] `PATCH /api/assessments/:id/certify` → status CERTIFIED, member `deployable=true`
-  Route exists at [`blueprints/assessments.py:126-152`](../backend/blueprints/assessments.py#L126-L152), but **missing the guard**: spec requires "sets member `deployable=true` only if no other open HIGH flag remains." The current code unconditionally sets `deployable = true` without checking for other unresolved HIGH flags on the member.
+  Route exists at [`blueprints/assessments.py:169-198`](../backend/blueprints/assessments.py#L169-L198), but **missing the guard**: spec requires "sets member `deployable=true` only if no other open HIGH flag remains." Currently sets `deployable=true` unconditionally.
 - [x] `PATCH /api/assessments/:id/refer` `{ referral_type, referral_notes }` → REFERRED + non-deployable
-  [`blueprints/assessments.py:155-185`](../backend/blueprints/assessments.py#L155-L185)
+  [`blueprints/assessments.py:200-233`](../backend/blueprints/assessments.py#L200-L233)
 - [x] `GET /api/service-members?unit_id=&deployable=` — list with unit join, deployable filter
   [`blueprints/service_members.py:16-32`](../backend/blueprints/service_members.py#L16-L32)
 - [x] `GET /api/service-members/:id` — detail with assessments array
@@ -24,18 +24,28 @@ against what is implemented in the Flask backend.
 
 ---
 
+## Response shape (frontend contract)
+
+- [x] `_shape()` helper — reshapes flat JOIN row into nested `member` / `unit` objects, renames `red_flags` → `flags`
+  [`blueprints/assessments.py:34-59`](../backend/blueprints/assessments.py#L34-L59)
+- [x] Applied to `GET /api/assessments` list and `GET /api/assessments/:id` detail
+- [x] `CreateAssessmentInput` in `frontend/src/types/drp.ts` exposes optional `status` field — Derrick can pass `'DRAFT'` to auto-save without triggering the rule engine
+  [`frontend/src/types/drp.ts:155-160`](../frontend/src/types/drp.ts#L155-L160)
+
+---
+
 ## Red-Flag Rule Engine
 
 - [x] Triggered on `POST /api/assessments` (SUBMITTED status only)
-  [`blueprints/assessments.py:117-121`](../backend/blueprints/assessments.py#L117-L121)
+  [`blueprints/assessments.py:155-158`](../backend/blueprints/assessments.py#L155-L158)
 - [x] Reads `responses` JSONB, computes `phq9_score` and `pcl5_score` server-side
   [`rules.py:15-24`](../backend/rules.py#L15-L24)
 - [x] Scores stored on the assessment row
-  [`blueprints/assessments.py:98-114`](../backend/blueprints/assessments.py#L98-L114)
+  [`blueprints/assessments.py:131-150`](../backend/blueprints/assessments.py#L131-L150)
 - [x] Creates `red_flags` rows
-  [`blueprints/assessments.py:188-208`](../backend/blueprints/assessments.py#L188-L208)
+  [`blueprints/assessments.py:249-265`](../backend/blueprints/assessments.py#L249-L265)
 - [x] Updates `service_members.deployable` / `deployable_reason`
-  [`blueprints/assessments.py:210-215`](../backend/blueprints/assessments.py#L210-L215)
+  [`blueprints/assessments.py:267-272`](../backend/blueprints/assessments.py#L267-L272)
 - [x] Any HIGH flag → non-deployable
   [`rules.py:142-144`](../backend/rules.py#L142-L144)
 
@@ -67,27 +77,27 @@ against what is implemented in the Flask backend.
 
 ## Acceptance Test (seed fixture)
 
-- [x] Unit test coverage for all 10 rules
+- [x] Unit test coverage for all 10 rules — 75/75 passing
   [`tests/test_rules.py`](../backend/tests/test_rules.py)
 - [x] 10 seed scenario cases pass (Bailey, Mitchell, Holt, Coleman, Nguyen, Foster, Marsh, Castillo, Vargas, Reyes)
   [`tests/test_rules.py:226-315`](../backend/tests/test_rules.py#L226-L315)
-- [ ] Spec requires **12 non-deployable soldiers** reproduced — `SEED_CASES` only has 10 entries; 2 cases are missing
-- [ ] Spec requires **17 hand-authored `red_flags`** reproduced — total flag count not validated anywhere in the tests
+- [ ] Spec requires **12 non-deployable soldiers** reproduced — `SEED_CASES` has 10 entries; 2 cases missing
+- [ ] Spec requires **17 hand-authored `red_flags`** reproduced — total flag count not validated in tests
 
 ---
 
 ## Gotchas from the spec
 
 - [x] Vanilla Postgres / parameterized SQL (no Supabase SDK) — `%s` placeholders used throughout
-- [ ] `certify` must check for remaining open HIGH flags before setting `deployable=true` — **not implemented** (see Endpoints section above)
+- [ ] `certify` must check for remaining open HIGH flags before setting `deployable=true` — **not implemented**
 - [ ] Coordinate response shapes with Bryan (contract steward) — out of scope for this checklist
 
 ---
 
-## Summary of gaps
+## Remaining gaps
 
 | # | Gap | File | Notes |
 |---|---|---|---|
-| 1 | Certify guard missing | [`blueprints/assessments.py:146-151`](../backend/blueprints/assessments.py#L146-L151) | Must query other unresolved HIGH flags before setting `deployable=true` |
+| 1 | Certify guard missing | [`blueprints/assessments.py:169-198`](../backend/blueprints/assessments.py#L169-L198) | Must query other unresolved HIGH flags before setting `deployable=true` |
 | 2 | 2 seed cases missing | [`tests/test_rules.py:226`](../backend/tests/test_rules.py#L226) | `SEED_CASES` has 10 soldiers; spec requires 12 non-deployable |
 | 3 | 17-flag count not validated | [`tests/test_rules.py`](../backend/tests/test_rules.py) | No test verifies total flag count against seeded data |
