@@ -12,12 +12,9 @@ load_dotenv(_ROOT_ENV, override=False)
 # The root .env ships a full connection string. psycopg2 accepts it directly as a DSN.
 SUPABASE_CONNECTION_STRING = os.environ.get("SUPABASE_CONNECTION_STRING", "")
 
-# --- OpenAI (commander data-chat LLM) ---
+# --- OpenAI (commander data-chat LLM + policy-assistant RAG) ---
 OPENAI_API_KEY = os.environ.get("OPENAI_API_KEY", "")
 OPENAI_MODEL = os.environ.get("OPENAI_MODEL", "gpt-4o-mini")
-
-# --- RAG gRPC service (policy assistant) ---
-RAG_GRPC_TARGET = os.environ.get("RAG_GRPC_TARGET", "localhost:50051")
 
 # --- Server ---
 HOST = os.environ.get("BACKEND_HOST", "127.0.0.1")

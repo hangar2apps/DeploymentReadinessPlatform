@@ -1,0 +1,21 @@
+# UDS tasks for local DRP development.
+#
+# Run with the maru-runner bundled in the UDS CLI:
+#   uds run backend      # start the Flask REST API on :3000
+#
+# The policy assistant's RAG pipeline runs in-process in the backend
+# (see backend/rag.py) — there is no separate service to start.
+
+variables:
+  - name: BACKEND_PORT
+    default: "3000"
+
+tasks:
+  - name: backend
+    description: "Start the Flask REST API on :${BACKEND_PORT}"
+    actions:
+      - description: "Sync the uv environment, then run the app"
+        dir: backend
+        cmd: |
+          uv sync
+          uv run python app.py
