@@ -81,23 +81,78 @@ Last updated: 2026-06-17.
   [`tests/test_rules.py`](../backend/tests/test_rules.py)
 - [x] 10 seed scenario cases pass (Bailey, Mitchell, Holt, Coleman, Nguyen, Foster, Marsh, Castillo, Vargas, Reyes)
   [`tests/test_rules.py:226-315`](../backend/tests/test_rules.py#L226-L315)
-- [ ] Spec requires **12 non-deployable soldiers** reproduced — `SEED_CASES` only has 10 entries; 2 cases are missing
-- [ ] Spec requires **17 hand-authored `red_flags`** reproduced — total flag count not validated anywhere in the tests
+- [ ] Spec requires **12 non-deployable soldiers** reproduced — `SEED_CASES` only has 10 entries; 2 cases are missing from unit tests
+- [x] Spec requires **17 hand-authored `red_flags`** reproduced — validated by `TestSeedAcceptance` against live DB
+  [`tests/test_db_integration.py`](../backend/tests/test_db_integration.py)
 
 ---
 
 ## Gotchas from the spec
 
 - [x] Vanilla Postgres / parameterized SQL (no Supabase SDK) — `%s` placeholders used throughout
-- [ ] `certify` must check for remaining open HIGH flags before setting `deployable=true` — **not implemented** (see Endpoints section above)
+- [x] `certify` must check for remaining open HIGH flags before setting `deployable=true` — implemented in [`blueprints/assessments.py:190-208`](../backend/blueprints/assessments.py#L190-L208) and tested by `TestCertifyLive`
 - [ ] Coordinate response shapes with Bryan (contract steward) — out of scope for this checklist
 
 ---
 
-## Summary of gaps
+## Test coverage status
 
-| # | Gap | File | Notes |
-|---|---|---|---|
-| 1 | Certify guard missing | [`blueprints/assessments.py:169-198`](../backend/blueprints/assessments.py#L169-L198) | Must query other unresolved HIGH flags before setting `deployable=true` |
-| 2 | 2 seed cases missing | [`tests/test_rules.py:226`](../backend/tests/test_rules.py#L226) | `SEED_CASES` has 10 soldiers; spec requires 12 non-deployable |
-| 3 | 17-flag count not validated | [`tests/test_rules.py`](../backend/tests/test_rules.py) | No test verifies total flag count against seeded data |
+Tracks which spec requirements have automated test coverage and at what tier (unit = no DB, integration = live DB).
+
+### Endpoints
+
+| Endpoint | Unit/mock test | DB integration test |
+|---|---|---|
+| `GET /api/assessments` (list) | ✅ route exists | ✅ list, shape, status/type/unit_id filters |
+| `GET /api/assessments/:id` (detail) | ✅ route exists | ✅ 200 + shape, 404 |
+| `POST /api/assessments` (create/submit) | ✅ validation, rule engine (mocked) | ✅ all 10 rules, deployability side-effect |
+| `PATCH /api/assessments/:id/certify` | ✅ route exists | ✅ status CERTIFIED, certified_at, member deployable=true, guard |
+| `PATCH /api/assessments/:id/refer` | ✅ input validation | ✅ status REFERRED, referral_type, member deployable=false |
+| `GET /api/service-members` (list) | ✅ route exists | ✅ list, unit_id filter, deployable filter |
+| `GET /api/service-members/:id` (detail) | ✅ route exists | ✅ member + assessments array, 404 |
+
+### Red-flag rules
+
+| Rule | Unit test | DB integration |
+|---|---|---|
+| PHQ-9 elevated ≥ 10 (HIGH) | ✅ | ✅ |
+| PHQ-9 mild 5–9 (LOW) | ✅ | ✅ |
+| PHQ-9 self-harm q9 > 0 (HIGH) | ✅ | ✅ |
+| PCL-5 elevated ≥ 31 (HIGH) | ✅ | ✅ |
+| Dental Class 3 (HIGH) | ✅ | ✅ |
+| Dental Class 4 (HIGH) | ✅ | ✅ |
+| PHA expired > 12 mo (MEDIUM) | ✅ | ✅ |
+| Immunization gap (MEDIUM) | ✅ | ✅ |
+| Pregnancy (HIGH) | ✅ | ✅ |
+| New medication (LOW) | ✅ | ✅ |
+
+### Flag → deployable_reason mapping
+
+| Category | Unit test | DB integration (side-effect on SM row) |
+|---|---|---|
+| Dental | ✅ | ✅ |
+| Behavioral Health | ✅ | ✅ |
+| Pregnancy | ✅ | ✅ |
+
+### Certify guard
+
+| Scenario | DB integration |
+|---|---|
+| No other open HIGH flags → member becomes deployable | ✅ |
+| Other open HIGH flag exists → member stays non-deployable | ✅ |
+
+### Seed acceptance
+
+| Criterion | Test |
+|---|---|
+| ≥ 12 non-deployable soldiers in DB | ✅ `TestSeedAcceptance` |
+| ≥ 17 red flags in DB | ✅ `TestSeedAcceptance` |
+
+---
+
+## Remaining gaps
+
+| # | Gap | Notes |
+|---|---|---|
+| 1 | 2 unit test seed cases missing | `SEED_CASES` has 10; spec says 12 non-deployable soldiers — identify the 2 remaining soldiers and add them |
+| 2 | Response shape coordination with Bryan | Out of scope until frontend integration review |
