@@ -12,7 +12,7 @@ flowcharts): `team/deployment-health-flow.md` — read this first if the domain 
 | Bryan | Frontend — app shell, commander dashboard, contract steward | `team/frontend-bryan.md` |
 | Derrick | Frontend — service member + provider surfaces | `team/frontend-derrick.md` |
 | Unicorn (TBD) | Backend — assessments + red-flag engine | `team/backend-assessments.md` |
-| Unicorn (TBD) | Backend — readiness + commander data chat | `team/backend-readiness-chat.md` |
+| Chris | Backend — readiness + commander data chat | `team/backend-readiness-chat.md` |
 | Unicorn (TBD) | Backend — foundation + RAG/policy integration (coordinator) | `team/backend-foundation-rag.md` |
 
 2 frontend, 3 backend. All three unicorns are platform engineers comfortable
