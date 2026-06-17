@@ -3,11 +3,7 @@
 // individual soldiers, which the dashboard aggregates don't carry).
 
 import { useState } from 'react';
-import type {
-  ReadinessRollup,
-  RedFlagSummaryItem,
-  TrendPoint,
-} from '../../types/drp';
+import type { ReadinessRollup, RedFlagSummaryItem } from '../../types/drp';
 import { getServiceMembers } from '../../services/api';
 import { exportCubBrief, exportActionList } from '../../lib/exportBrief';
 import { LATEST_ARRIVAL } from '../../lib/deployment';
@@ -17,11 +13,9 @@ const UNIT_NAME = '1st Battalion, 327th Infantry Regiment';
 export function CommanderExports({
   readiness,
   redFlags,
-  trend,
 }: {
   readiness: ReadinessRollup;
   redFlags: RedFlagSummaryItem[];
-  trend: TrendPoint[];
 }) {
   const [busy, setBusy] = useState(false);
 
@@ -37,7 +31,6 @@ export function CommanderExports({
         generatedAt: now,
         readiness,
         redFlags,
-        trend,
       });
       const members = await getServiceMembers({ deployable: false });
       const daysToLad = Math.max(
