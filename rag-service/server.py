@@ -1,7 +1,7 @@
 import grpc
 import psycopg2
-import docintel_pb2 # stubs interface
-import docintel_pb2_grpc # router
+import docintel_pb2  # stubs interface
+import docintel_pb2_grpc  # router
 import io
 import uuid
 import os
@@ -10,9 +10,11 @@ from concurrent import futures
 from langchain_text_splitters import RecursiveCharacterTextSplitter
 from langchain_openai import OpenAIEmbeddings, ChatOpenAI
 from dotenv import load_dotenv
+
 load_dotenv(override=True)
 
-# inherit the skeleton class from the auto-generated file 
+
+# inherit the skeleton class from the auto-generated file
 class DocumentIntelligenceServicer(docintel_pb2_grpc.DocumentIntelligenceServicer):
     # on server start up, create one embedding client, one LLM client, and one database connection
     # then every request reuses them
@@ -25,7 +27,7 @@ class DocumentIntelligenceServicer(docintel_pb2_grpc.DocumentIntelligenceService
             database=os.environ.get("DB_NAME", "docintel"),
             user=os.environ.get("DB_USER", "postgres"),
             password=os.environ.get("DB_PASSWORD", "docintel"),
-            sslmode=os.environ.get("DB_SSLMODE", "prefer")
+            sslmode=os.environ.get("DB_SSLMODE", "prefer"),
         )
 
         cur = self.conn.cursor()
@@ -46,42 +48,44 @@ class DocumentIntelligenceServicer(docintel_pb2_grpc.DocumentIntelligenceService
 
     def Query(self, request, context):
         # request.question has the question string
-        
+
         # EMBED
         query_embedding = self.embeddings.embed_query(request.question)
 
         # CONNNECT TO DB
         cur = self.conn.cursor()
 
-
         # SIMILARITY SEARCH
-        cur.execute("""
+        cur.execute(
+            """
             SELECT content, source, 1 - (embedding <=> %s) AS similarity
             FROM document_chunks
             ORDER BY embedding <=> %s
             LIMIT %s
-        """, (str(query_embedding), str(query_embedding), request.max_chunks or 5))
+        """,
+            (str(query_embedding), str(query_embedding), request.max_chunks or 5),
+        )
 
         results = cur.fetchall()
         cur.close()
-
 
         # Build context from retrieved chunks
         sources = []
         context_parts = []
         for content, source, similarity in results:
             context_parts.append(content)
-            sources.append(docintel_pb2.SourceChunk(
-                document_name=source,
-                chunk_text=content[:200],
-                similarity_score=similarity
-            ))
+            sources.append(
+                docintel_pb2.SourceChunk(
+                    document_name=source,
+                    chunk_text=content[:200],
+                    similarity_score=similarity,
+                )
+            )
 
         context_str = "\n\n---\n\n".join(context_parts)
 
-
         # Build the prompt
-        prompt = f"""Answer the following question using the provided context. 
+        prompt = f"""Answer the following question using the provided context.
         If the context only partially answers the question, provide what you can and note what's missing.
 
         CONTEXT:
@@ -96,9 +100,7 @@ class DocumentIntelligenceServicer(docintel_pb2_grpc.DocumentIntelligenceService
 
         # 5. Yield the response back to the caller
         yield docintel_pb2.QueryResponse(
-            token=response.content,
-            sources=sources,
-            done=True
+            token=response.content, sources=sources, done=True
         )
 
     def IngestDocument(self, request, context):
@@ -106,7 +108,7 @@ class DocumentIntelligenceServicer(docintel_pb2_grpc.DocumentIntelligenceService
         # request.filename
         # request.content - this is the pdf in bytes
         # request.doc_type
-        print('gn2 Ingest')
+        print("gn2 Ingest")
 
         # CHUNK
         reader = PdfReader(io.BytesIO(request.content))
@@ -131,16 +133,10 @@ class DocumentIntelligenceServicer(docintel_pb2_grpc.DocumentIntelligenceService
         for i, chunk in enumerate(chunks):
             embedding = self.embeddings.embed_query(chunk)
             cur.execute(
-                """INSERT INTO document_chunks 
-                (document_id, content, source, chunk_index, embedding) 
+                """INSERT INTO document_chunks
+                (document_id, content, source, chunk_index, embedding)
                 VALUES (%s, %s, %s, %s, %s)""",
-                (
-                    doc_id,
-                    chunk,
-                    request.filename,
-                    i,
-                    str(embedding)
-                )
+                (doc_id, chunk, request.filename, i, str(embedding)),
             )
             if (i + 1) % 25 == 0:
                 print(f"  ...{i + 1}/{len(chunks)}")
@@ -151,21 +147,15 @@ class DocumentIntelligenceServicer(docintel_pb2_grpc.DocumentIntelligenceService
         self.conn.commit()
         cur.close()
 
-
-
-
         return docintel_pb2.IngestResponse(
-            document_id=doc_id,
-            chunks_created=len(chunks),
-            status='complete'
+            document_id=doc_id, chunks_created=len(chunks), status="complete"
         )
 
     def ListDocuments(self, request, context):
-        print('gn2 ListDocuments')
+        print("gn2 ListDocuments")
 
         # CONNNECT TO DB
         cur = self.conn.cursor()
-
 
         # SELECT DOCUMENT LIST
         cur.execute("""
@@ -180,19 +170,19 @@ class DocumentIntelligenceServicer(docintel_pb2_grpc.DocumentIntelligenceService
         documents = []
 
         for doc_id, source, chunk_count in results:
-            documents.append(docintel_pb2.DocumentMeta(
-                document_id = doc_id,
-                filename = source,
-                doc_type =  '',  # would need to create a separate table and store doc_type id during ingestion
-                chunk_count = chunk_count,
-                ingested_at = '' # would need to create a new column and set at time of ingestion
-            ))
+            documents.append(
+                docintel_pb2.DocumentMeta(
+                    document_id=doc_id,
+                    filename=source,
+                    doc_type="",  # would need to create a separate table and store doc_type id during ingestion
+                    chunk_count=chunk_count,
+                    ingested_at="",  # would need to create a new column and set at time of ingestion
+                )
+            )
 
         print(documents)
 
         return docintel_pb2.DocumentList(documents=documents)
-           
-
 
 
 def serve():
@@ -206,13 +196,14 @@ def serve():
     # listens on port 50051 on all network interfaces
     # "insecure" means no TLS, production would use add_secure_port
     # Transportation Layer Security(TLS) - the S in HTTPS. encrypts the data flowing between client and server
-    server.add_insecure_port('[::]:50051')
+    server.add_insecure_port("[::]:50051")
     # start the server, print confirmation, then block
     server.start()
     print("DRP rag-service gRPC server running on port 50051")
     # keeps the process alive and listening. same as app.listen()
     server.wait_for_termination()
 
+
 # Standard Python convention. This means "only run serve() if this file is executed directly". If someone imports server.py from another file, it wont auto-start the server.
-if __name__ == '__main__':
+if __name__ == "__main__":
     serve()

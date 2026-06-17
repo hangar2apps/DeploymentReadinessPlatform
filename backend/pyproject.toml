@@ -1,0 +1,20 @@
+[project]
+name = "drp-backend"
+version = "0.1.0"
+description = "DRP Flask API gateway — REST API for the three user surfaces plus the policy-assistant gRPC proxy"
+requires-python = ">=3.11"
+dependencies = [
+    "flask==3.1.0",
+    "flask-cors==5.0.0",
+    "psycopg2-binary==2.9.12",
+    "python-dotenv==1.2.2",
+    "grpcio==1.80.0",
+    "protobuf==6.33.6",
+    "openai==2.32.0",
+]
+
+[dependency-groups]
+dev = [
+    "pytest>=8.0",
+    "pytest-flask>=1.3",
+]
