@@ -1,20 +1,26 @@
-"""Thin psycopg2 access layer over the shared Supabase Postgres.
+"""
+Thin psycopg2 access layer over the shared Supabase Postgres.
 
 A small connection pool is created once at import. Helpers return rows as plain
 dicts (via RealDictCursor) so route handlers can jsonify them directly.
 """
 
 import contextlib
+from typing import Any, Generator, Optional, Sequence
 from psycopg2.pool import ThreadedConnectionPool
-from psycopg2.extras import RealDictCursor
+from psycopg2.extras import RealDictCursor, RealDictRow
+from psycopg2.extensions import connection
 
 import config
 
-_pool = None
+_pool: Optional[ThreadedConnectionPool] = None
 
 
-def _get_pool():
-    """Create the connection pool on first use (keeps app import side-effect free)."""
+def _get_pool() -> ThreadedConnectionPool:
+    """
+    Create the connection pool on first use (keeps app import side-effect free).
+    """
+
     global _pool
     if _pool is None:
         # Supabase requires SSL. The DSN may already include sslmode; if not, force it.
@@ -28,8 +34,11 @@ def _get_pool():
 
 
 @contextlib.contextmanager
-def get_conn():
-    """Borrow a connection from the pool, returning it on exit."""
+def get_conn() -> Generator[connection, None, None]:
+    """
+    Borrow a connection from the pool, returning it on exit.
+    """
+
     pool = _get_pool()
     conn = pool.getconn()
     try:
@@ -38,27 +47,45 @@ def get_conn():
         pool.putconn(conn)
 
 
-def query(sql, params=None):
-    """Run a SELECT and return a list of dict rows."""
+def query(
+    sql: str,
+    params: Optional[Sequence[Any]] = None,
+) -> list[RealDictRow]:
+    """
+    Run a SELECT and return a list of dict rows.
+    """
+
     with get_conn() as conn:
         with conn.cursor(cursor_factory=RealDictCursor) as cur:
             cur.execute(sql, params or ())
             return cur.fetchall()
 
 
-def query_one(sql, params=None):
-    """Run a SELECT and return a single dict row (or None)."""
+def query_one(
+    sql: str,
+    params: Optional[Sequence[Any]] = None,
+) -> Optional[dict[str, Any]]:
+    """
+    Run a SELECT and return a single dict row (or None).
+    """
+
     with get_conn() as conn:
         with conn.cursor(cursor_factory=RealDictCursor) as cur:
             cur.execute(sql, params or ())
             return cur.fetchone()
 
 
-def execute(sql, params=None, returning=True):
-    """Run an INSERT/UPDATE/DELETE inside a transaction.
+def execute(
+    sql: str,
+    params: Optional[Sequence[Any]] = None,
+    returning: bool = True,
+) -> Optional[dict[str, Any]]:
+    """
+    Run an INSERT/UPDATE/DELETE inside a transaction.
 
     Returns the RETURNING row (dict) when returning=True, else None.
     """
+
     with get_conn() as conn:
         try:
             with conn.cursor(cursor_factory=RealDictCursor) as cur:

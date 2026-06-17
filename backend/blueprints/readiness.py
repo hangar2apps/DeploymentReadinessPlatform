@@ -1,4 +1,5 @@
-"""Readiness routes — battalion rollup, trend, and red-flag summary.
+"""
+Readiness routes — battalion rollup, trend, and red-flag summary.
 
 Endpoints:
   GET /api/readiness            — KPIs + readiness by company
@@ -7,7 +8,9 @@ Endpoints:
 """
 
 from datetime import date, timedelta
+from typing import Optional, Tuple
 from flask import Blueprint, request, jsonify
+from flask.wrappers import Response
 
 import db
 from blueprints.units import readiness_stats
@@ -15,15 +18,21 @@ from blueprints.units import readiness_stats
 bp = Blueprint("readiness", __name__)
 
 
-def _default_unit_id():
-    """The battalion (top of the hierarchy) when no unit_id is supplied."""
+def _default_unit_id() -> Optional[str]:
+    """
+    The battalion (top of the hierarchy) when no unit_id is supplied.
+    """
+
     row = db.query_one("SELECT id FROM units WHERE parent_unit_id IS NULL LIMIT 1")
     return str(row["id"]) if row else None
 
 
 @bp.get("/api/readiness")
-def readiness():
-    """KPI cards + per-company breakdown for the commander dashboard."""
+def readiness() -> Tuple[Response, int]:
+    """
+    KPI cards + per-company breakdown for the commander dashboard.
+    """
+
     unit_id = request.args.get("unit_id") or _default_unit_id()
     if not unit_id:
         return jsonify({"error": "no units found"}), 404
@@ -50,8 +59,8 @@ def readiness():
         """,
         (unit_id,),
     )
-    total = pdhra["total"] or 0
-    pdhra_pct = round(100.0 * (pdhra["compliant"] or 0) / total, 1) if total else 0.0
+    total = (pdhra["total"] or 0) if pdhra else 0
+    pdhra_pct = round(100.0 * (pdhra["compliant"] or 0) / total, 1) if pdhra and total else 0.0
 
     # Per-company breakdown (direct children of the requested unit).
     companies = db.query(
@@ -62,28 +71,30 @@ def readiness():
     for c in companies:
         by_company.append({**c, "readiness": readiness_stats(str(c["id"]))})
 
-    return jsonify(
-        {
-            "unit_id": unit_id,
-            "kpis": {
-                "deployable_pct": stats["deployable_pct"],
-                "total_assigned": stats["assigned"],
-                "non_deployable": stats["non_deployable"],
-                "pdhra_compliance_pct": pdhra_pct,
-            },
-            "by_company": by_company,
-        }
-    )
+    result = {
+        "unit_id": unit_id,
+        "kpis": {
+            "deployable_pct": stats["deployable_pct"],
+            "total_assigned": stats["assigned"],
+            "non_deployable": stats["non_deployable"],
+            "pdhra_compliance_pct": pdhra_pct,
+        },
+        "by_company": by_company,
+    }
+
+    return jsonify(result), 200
 
 
 @bp.get("/api/readiness/trend")
-def trend():
-    """Synthetic deployable-% time series ending today.
+def trend() -> Response:
+    """
+    Synthetic deployable-% time series ending today.
 
     There is no historical snapshot table in the schema, so we derive a
     plausible curve that lands on the unit's current deployable %. Replace with
     a real daily-snapshot query once snapshots are persisted.
     """
+
     unit_id = request.args.get("unit_id") or _default_unit_id()
     days = int(request.args.get("days", 90))
     current = readiness_stats(unit_id)["deployable_pct"] if unit_id else 0.0
@@ -94,14 +105,20 @@ def trend():
         d = today - timedelta(days=i)
         # Gentle ramp from ~6 points below current up to the current value.
         offset = 6.0 * (i / days) if days else 0.0
-        points.append({"date": d.isoformat(), "deployable_pct": round(current - offset, 1)})
+        points.append({
+            "date": d.isoformat(),
+            "deployable_pct": round(current - offset, 1),
+        })
 
     return jsonify({"unit_id": unit_id, "days": days, "points": points})
 
 
 @bp.get("/api/red-flags/summary")
-def red_flags_summary():
-    """Open red flags aggregated by type/category for the 'Attention Required' panel."""
+def red_flags_summary() -> Response:
+    """
+    Open red flags aggregated by type/category for the 'Attention Required' panel.
+    """
+
     unit_id = request.args.get("unit_id") or _default_unit_id()
     rows = db.query(
         """

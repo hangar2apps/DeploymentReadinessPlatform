@@ -1,11 +1,16 @@
-"""Assessment routes — list, detail, create, certify, refer.
+"""
+Assessment routes — list, detail, create, certify, refer.
 
-Submitting an assessment scores it and runs the red-flag rule engine
-(see rules.py), then updates the service member's deployable status.
+Submitting an assessment scores it and runs the red-flag rule engine (see rules.py), then updates the service member's deployable status.
 """
 
 import json
+from typing import Any, Tuple
+from uuid import UUID
 from flask import Blueprint, request, jsonify
+from flask.wrappers import Response
+from psycopg2.extras import RealDictRow
+
 
 import db
 import rules
@@ -24,7 +29,7 @@ _BASE_SELECT = """
 """
 
 
-def _flags_for(assessment_id):
+def _flags_for(assessment_id: str) -> list[RealDictRow]:
     return db.query(
         "SELECT * FROM red_flags WHERE assessment_id = %s ORDER BY "
         "CASE severity WHEN 'HIGH' THEN 0 WHEN 'MEDIUM' THEN 1 ELSE 2 END",
@@ -33,8 +38,11 @@ def _flags_for(assessment_id):
 
 
 @bp.get("")
-def list_assessments():
-    """GET /api/assessments — filterable by status, unit, type."""
+def list_assessments() -> Response:
+    """
+    GET /api/assessments — filterable by status, unit, type.
+    """
+
     clauses, params = [], []
     if status := request.args.get("status"):
         clauses.append("a.status = %s")
@@ -64,23 +72,27 @@ def list_assessments():
 
 
 @bp.get("/<uuid:assessment_id>")
-def get_assessment(assessment_id):
-    """GET /api/assessments/:id — full detail with red flags."""
+def get_assessment(assessment_id: UUID) -> Tuple[Response, int]:
+    """
+    GET /api/assessments/:id — full detail with red flags.
+    """
+
     row = db.query_one(_BASE_SELECT + " WHERE a.id = %s", (str(assessment_id),))
     if not row:
         return jsonify({"error": "assessment not found"}), 404
     row["red_flags"] = _flags_for(str(assessment_id))
-    return jsonify(row)
+    return jsonify(row), 200
 
 
 @bp.post("")
-def create_assessment():
-    """POST /api/assessments — service member submits.
+def create_assessment() -> Tuple[Response, int]:
+    """
+    POST /api/assessments — service member submits.
 
     Body: { service_member_id, type, responses, status? }
-    If status is SUBMITTED (the default for a submit), we score it, run the
-    rule engine, persist red flags, and update deployability.
+    If status is SUBMITTED (the default for a submit), we score it, run the rule engine, persist red flags, and update deployability.
     """
+
     body = request.get_json(silent=True) or {}
     service_member_id = body.get("service_member_id")
     type_ = body.get("type")
@@ -112,6 +124,8 @@ def create_assessment():
             submitting,
         ),
     )
+    if not assessment:
+        return jsonify({"error": "failed to create assessment"}), 500
 
     flags = []
     if submitting:
@@ -124,11 +138,13 @@ def create_assessment():
 
 
 @bp.patch("/<uuid:assessment_id>/certify")
-def certify(assessment_id):
-    """PATCH /api/assessments/:id/certify — provider marks deployable.
+def certify(assessment_id: UUID) -> Tuple[Response, int]:
+    """
+    PATCH /api/assessments/:id/certify — provider marks deployable.
 
     Body: { certified_by?: service_member_id }
     """
+
     body = request.get_json(silent=True) or {}
     row = db.execute(
         """
@@ -149,16 +165,18 @@ def certify(assessment_id):
         (row["service_member_id"],),
         returning=False,
     )
-    return jsonify(row)
+    return jsonify(row), 200
 
 
 @bp.patch("/<uuid:assessment_id>/refer")
-def refer(assessment_id):
-    """PATCH /api/assessments/:id/refer — provider refers out.
+def refer(assessment_id: UUID) -> Tuple[Response, int]:
+    """
+    PATCH /api/assessments/:id/refer — provider refers out.
 
     Body: { referral_type, referral_notes? }
     Referral makes the member non-deployable pending the referral category.
     """
+
     body = request.get_json(silent=True) or {}
     referral_type = body.get("referral_type")
     if not referral_type:
@@ -182,11 +200,20 @@ def refer(assessment_id):
         (referral_type, row["service_member_id"]),
         returning=False,
     )
-    return jsonify(row)
+    return jsonify(row), 200
 
 
-def _run_rule_engine(assessment_id, service_member_id, responses, phq9, pcl5):
-    """Persist red flags for a submitted assessment and update deployability."""
+def _run_rule_engine(
+    assessment_id: str,
+    service_member_id: str,
+    responses: dict[str, Any],
+    phq9: int,
+    pcl5: int,
+) -> list[dict[str, Any]]:
+    """
+    Persist red flags for a submitted assessment and update deployability.
+    """
+
     flags = rules.evaluate(responses, phq9, pcl5)
     inserted = []
     for f in flags:
