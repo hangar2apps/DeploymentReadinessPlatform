@@ -28,6 +28,11 @@ import * as fx from './fixtures';
 
 const env = import.meta.env as Record<string, string | undefined>;
 export const USE_MOCKS = env.VITE_USE_MOCKS !== 'false'; // mocks ON by default
+// AI chat (commander + policy) can stay mocked while the data endpoints go
+// live — e.g. before OPENAI_API_KEY is configured on the backend. Defaults to
+// USE_MOCKS unless VITE_MOCK_AI is set explicitly.
+export const MOCK_AI =
+  env.VITE_MOCK_AI != null ? env.VITE_MOCK_AI !== 'false' : USE_MOCKS;
 const API_URL = env.VITE_API_URL ?? 'http://localhost:3000';
 
 // Simulate a little latency so loading states are exercised in mock mode.
@@ -158,7 +163,7 @@ export function getRedFlagSummary(unitId?: string): Promise<RedFlagSummaryItem[]
 
 // Commander data chat (SQL -> LLM, HIPAA-constrained). Non-streaming.
 export function commanderChat(question: string, unitId?: string): Promise<CommanderChatResponse> {
-  if (USE_MOCKS) return mock(fx.mockCommanderChat(question), 600);
+  if (MOCK_AI) return mock(fx.mockCommanderChat(question), 600);
   return http('/api/commander/chat', { method: 'POST', body: JSON.stringify({ question, unit_id: unitId }) });
 }
 
@@ -167,6 +172,6 @@ export function commanderChat(question: string, unitId?: string): Promise<Comman
 // separate policyChatStream(question, onToken) using EventSource and keep this
 // for the non-streaming fallback.
 export function policyChat(question: string): Promise<PolicyChatResponse> {
-  if (USE_MOCKS) return mock(fx.mockPolicyChat(question), 600);
+  if (MOCK_AI) return mock(fx.mockPolicyChat(question), 600);
   return http('/api/policy-chat', { method: 'POST', body: JSON.stringify({ question }) });
 }
