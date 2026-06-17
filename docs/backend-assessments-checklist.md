@@ -89,12 +89,12 @@ Last updated: 2026-06-17.
 ## Gotchas from the spec
 
 - [x] Vanilla Postgres / parameterized SQL (no Supabase SDK) — `%s` placeholders used throughout
-- [ ] `certify` must check for remaining open HIGH flags before setting `deployable=true` — **not implemented**  (see Endpoints section above)
+- [ ] `certify` must check for remaining open HIGH flags before setting `deployable=true` — **not implemented** (see Endpoints section above)
 - [ ] Coordinate response shapes with Bryan (contract steward) — out of scope for this checklist
 
 ---
 
-##  Summary of gaps
+## Summary of gaps
 
 | # | Gap | File | Notes |
 |---|---|---|---|
