@@ -18,15 +18,44 @@ import rules
 bp = Blueprint("assessments", __name__, url_prefix="/api/assessments")
 
 
-# Joined columns reused by list + detail so the frontend always gets the service member's identity alongside the assessment.
 _BASE_SELECT = """
   SELECT a.*,
          sm.edipi, sm.rank, sm.last_name, sm.first_name, sm.middle_initial,
-         sm.unit_id, u.name AS unit_name, u.short_name AS unit_short_name
+         sm.mos, sm.deployable AS sm_deployable, sm.deployable_reason AS sm_deployable_reason,
+         sm.unit_id,
+         u.name AS unit_name, u.short_name AS unit_short_name,
+         u.uic AS unit_uic, u.parent_unit_id AS unit_parent_id
   FROM assessments a
   JOIN service_members sm ON sm.id = a.service_member_id
   JOIN units u            ON u.id = sm.unit_id
 """
+
+
+def _shape(row: dict) -> dict:
+    """Reshape a JOIN row into the nested member/unit/flags contract the frontend expects."""
+    row = dict(row)
+    member_unit_id = row["unit_id"]
+    row["member"] = {
+        "id":                row["service_member_id"],
+        "rank":              row.pop("rank"),
+        "last_name":         row.pop("last_name"),
+        "first_name":        row.pop("first_name"),
+        "edipi":             row.pop("edipi"),
+        "middle_initial":    row.pop("middle_initial", None),
+        "mos":               row.pop("mos", None),
+        "unit_id":           member_unit_id,
+        "deployable":        row.pop("sm_deployable", None),
+        "deployable_reason": row.pop("sm_deployable_reason", None),
+    }
+    row["unit"] = {
+        "id":             row.pop("unit_id"),
+        "short_name":     row.pop("unit_short_name"),
+        "name":           row.pop("unit_name", None),
+        "uic":            row.pop("unit_uic", None),
+        "parent_unit_id": row.pop("unit_parent_id", None),
+    }
+    row["flags"] = row.pop("red_flags", [])
+    return row
 
 
 def _flags_for(assessment_id: str) -> list[RealDictRow]:
@@ -100,7 +129,7 @@ def list_assessments() -> Response:
     rows = db.query(sql, params)
     for r in rows:
         r["red_flags"] = _flags_for(r["id"])
-    return jsonify(rows)
+    return jsonify([_shape(r) for r in rows])
 
 
 @bp.get("/<uuid:assessment_id>")
@@ -113,7 +142,7 @@ def get_assessment(assessment_id: UUID) -> Tuple[Response, int]:
     if not row:
         return jsonify({"error": "assessment not found"}), 404
     row["red_flags"] = _flags_for(str(assessment_id))
-    return jsonify(row), 200
+    return jsonify(_shape(dict(row))), 200
 
 
 @bp.post("")
