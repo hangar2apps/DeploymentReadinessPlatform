@@ -174,6 +174,7 @@ class TestRouteRegistration:
 # ---------------------------------------------------------------------------
 
 _FAKE_ASSESSMENT = {
+    # Assessment columns
     "id": "00000000-0000-0000-0000-000000000099",
     "service_member_id": "00000000-0000-0000-0000-000000000001",
     "type": "PRE",
@@ -186,6 +187,20 @@ _FAKE_ASSESSMENT = {
     "certified_by": None,
     "referral_type": None,
     "referral_notes": None,
+    # JOIN columns from _BASE_SELECT (service_members + units)
+    "rank": "SPC",
+    "last_name": "Doe",
+    "first_name": "Jane",
+    "edipi": "9000000001",
+    "middle_initial": None,
+    "mos": "11B",
+    "sm_deployable": True,
+    "sm_deployable_reason": None,
+    "unit_id": "00000000-0000-0000-0000-000000000010",
+    "unit_name": "Test Company",
+    "unit_short_name": "T CO",
+    "unit_uic": "WJ5TT0",
+    "unit_parent_id": None,
 }
 
 

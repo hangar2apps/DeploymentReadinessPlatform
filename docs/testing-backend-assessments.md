@@ -12,22 +12,24 @@ cd backend
 # Install deps (first time only)
 uv sync --dev
 
-# All 75 tests — rule engine + HTTP layer, no DB needed
-uv run pytest tests/ -v
+# All offline tests — rule engine + HTTP layer, no DB needed
+uv run pytest tests/test_rules.py tests/test_http.py -v
 
 # Rule engine only (52 tests)
 uv run pytest tests/test_rules.py -v
 
 # HTTP layer only (23 tests)
 uv run pytest tests/test_http.py -v
+
+# DB integration tests — requires SUPABASE_CONNECTION_STRING in root .env
+uv run pytest tests/test_db_integration.py -v -m db
 ```
 
-**Current status: 75/75 passing.**
-
-| File | What it covers |
-|---|---|
-| [tests/test_rules.py](../backend/tests/test_rules.py) | `score()`, all 10 flag rules, boundary values, `deployability()` reason mapping, 10 seeded non-deployable scenarios |
-| [tests/test_http.py](../backend/tests/test_http.py) | Health endpoint, input validation (400s), all 7 route registrations, rule engine fires on POST |
+| File | Requires DB? | What it covers |
+|---|---|---|
+| [tests/test_rules.py](../backend/tests/test_rules.py) | No | `score()`, all 10 flag rules, boundary values, `deployability()` reason mapping, 10 seeded non-deployable scenarios |
+| [tests/test_http.py](../backend/tests/test_http.py) | No | Health endpoint, input validation (400s), all 7 route registrations, rule engine fires on POST (DB mocked) |
+| [tests/test_db_integration.py](../backend/tests/test_db_integration.py) | **Yes** | Live list/detail/create/filter against Supabase; verifies real flag rows written and response shape |
 
 ---
 
@@ -102,7 +104,8 @@ lsof -ti:3000 | xargs kill -9
 |---|---|---|
 | **Tier 1 — Rule engine unit tests** | No | Scoring, flag evaluation, deployability logic |
 | **Tier 2 — HTTP input validation** | No | 400 errors, missing fields, bad types |
-| **Tier 3 — Live endpoint tests** | Yes (pooler URL) | Full CRUD against real seed data |
+| **Tier 3 — Automated DB integration (pytest)** | Yes (pooler URL) | `pytest -m db` — Flask test client hits real Supabase; creates and cleans up rows |
+| **Tier 4 — Live endpoint curl tests** | Yes (pooler URL) | Full CRUD against real seed data via curl |
 
 ---
 
@@ -261,7 +264,31 @@ curl -s -X PATCH http://localhost:3000/api/assessments/00000000-0000-0000-0000-0
 
 ---
 
-## Tier 3 — Live endpoint tests (requires DB connection)
+## Tier 3 — Automated DB integration tests (pytest, requires DB connection)
+
+```sh
+cd backend
+uv run pytest tests/test_db_integration.py -v -m db
+```
+
+### How it works
+
+- **No mocks.** The `db` module is imported as-is; every `db.query` / `db.execute` call goes to the real Supabase Postgres instance using the connection pool in `db.py`.
+- **Skip-safe.** A session-scoped `require_db` fixture runs first. If `SUPABASE_CONNECTION_STRING` is absent or the connection fails, the entire file is skipped — the offline test suite still passes cleanly.
+- **Self-cleaning.** Tests that POST new assessments register the created IDs in a `cleanup_assessments` fixture, which deletes those rows (and their cascaded `red_flags`) on teardown. The seed data is never permanently altered.
+- **Session-cached SM id.** `live_service_member_id` does one `SELECT id FROM service_members LIMIT 1` at session start; all write tests reuse that ID.
+
+### What it covers
+
+| Test class | Endpoint | What is verified |
+|---|---|---|
+| `TestListAssessmentsLive` | `GET /api/assessments` | 200 + list; nested `member`/`unit`/`flags` shape; status and type filters |
+| `TestGetAssessmentLive` | `GET /api/assessments/:id` | 200 + correct id; 404 for unknown UUID |
+| `TestCreateAssessmentLive` | `POST /api/assessments` | Real flag rows in DB for dental/PHQ-9; no flags on clean responses; draft skips rule engine |
+
+---
+
+## Tier 4 — Live endpoint curl tests (requires DB connection)
 
 Run after fixing the pooler URL in `.env`. The seed must already be loaded:
 
@@ -428,7 +455,9 @@ print(f'HIGH flags: {len(highs)}')
 | Rule engine — 12 scenario tests | ✅ Passing | All HIGH/LOW/MEDIUM rules fire correctly |
 | Rule engine — boundary tests | ✅ Passing | PCL-5 30/31 boundary, self-harm isolation |
 | Rule engine — seed scenario validation | ✅ Passing | 10/10 non-deployable soldier scenarios reproduced |
-| Live DB endpoints (all) | ❌ Blocked | IPv6 connection fails on this network |
+| DB integration — list/detail/filter | ✅ Passing | `pytest -m db` hits live Supabase |
+| DB integration — create + rule engine | ✅ Passing | Real flag rows written and cleaned up |
+| Live curl endpoint tests | ✅ Passing | Use session-pooler URL in `.env` (IPv4) |
 
 ### Blocker: IPv6 / session pooler
 
