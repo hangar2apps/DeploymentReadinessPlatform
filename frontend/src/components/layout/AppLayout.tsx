@@ -1,4 +1,4 @@
-import { Navigate, Outlet, useLocation } from 'react-router-dom';
+import { Navigate, Outlet, useLocation, useNavigate } from 'react-router-dom';
 import { CuiBar } from './CuiBar';
 import { Sidebar } from './Sidebar';
 import { useRole } from '../../context/RoleContext';
@@ -12,9 +12,10 @@ const TITLES: Record<string, string> = {
 };
 
 export function AppLayout() {
-  const { persona } = useRole();
+  const { persona, logout } = useRole();
   const { headerActions } = useLayout();
   const { pathname } = useLocation();
+  const navigate = useNavigate();
 
   // Auth guard — no persona means signed out.
   if (!persona) return <Navigate to="/login" replace />;
@@ -38,7 +39,7 @@ export function AppLayout() {
 
             {/* right: unit pill + page actions (e.g. EXPORT) */}
             <div className="flex min-w-0 flex-1 items-center justify-end gap-3">
-              <span className="hidden shrink-0 rounded-full border border-border px-3 py-1 font-mono text-[11px] uppercase tracking-wider text-muted sm:inline">
+              <span className="shrink-0 rounded-full border border-border px-3 py-1 font-mono text-[11px] uppercase tracking-wider text-muted">
                 {persona.unit_label}
               </span>
               {headerActions}
@@ -47,6 +48,20 @@ export function AppLayout() {
 
           <main className="min-h-0 flex-1 overflow-y-auto bg-bg p-4 sm:p-6">
             <Outlet />
+
+            {/* Mobile sign out — the sidebar (with its own) is hidden below md. */}
+            <div className="mt-8 border-t border-border pt-4 md:hidden">
+              <button
+                type="button"
+                onClick={() => {
+                  logout();
+                  navigate('/login');
+                }}
+                className="w-full rounded-md border border-border px-3 py-1.5 font-mono text-[11px] uppercase tracking-wider text-muted transition-colors hover:border-danger hover:text-danger"
+              >
+                Sign out
+              </button>
+            </div>
           </main>
         </div>
       </div>

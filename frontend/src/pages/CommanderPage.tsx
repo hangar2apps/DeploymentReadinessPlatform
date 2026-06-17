@@ -51,9 +51,7 @@ export default function CommanderPage() {
         setRedFlags(f);
         setError(false);
         // Inject the export buttons into the shared top bar (right side).
-        setHeaderActions(
-          <CommanderExports readiness={r} redFlags={f} trend={t} />,
-        );
+        setHeaderActions(<CommanderExports readiness={r} redFlags={f} />);
         // Inject the unit roster into the sidebar: company readiness, click to
         // drill into that company's non-deployable roster.
         setSidebarNav(
@@ -105,43 +103,36 @@ export default function CommanderPage() {
   return (
     <div className="space-y-5">
       {/* KPIs grouped by intent: forward-looking deployability vs the
-          post-deployment compliance follow-up (PDHRA). */}
-      <div className="grid gap-4 lg:grid-cols-4">
-        <section className="lg:col-span-3">
-          <h2 className="mb-2 font-mono text-[11px] uppercase tracking-wider text-muted">
-            Deployment Readiness
-          </h2>
-          <div className="grid grid-cols-2 gap-4 sm:grid-cols-3">
-            <KpiCard
-              label="% Deployable"
-              value={readiness.pct_deployable.toFixed(1)}
-              unit="%"
-              delta={readiness.delta_from_last_week}
-              tone={readinessTone(readiness.pct_deployable)}
-              hint="vs last week"
-            />
-            <KpiCard label="Total Assigned" value={readiness.total_assigned} />
-            <KpiCard
-              label="Non-Deployable"
-              value={readiness.non_deployable_count}
-              tone="danger"
-              hint="require action"
-            />
-          </div>
-        </section>
-        <section className="flex flex-col lg:col-span-1">
-          <h2 className="mb-2 font-mono text-[11px] uppercase tracking-wider text-muted">
-            Health Compliance
-          </h2>
-          <div className="max-w-xs flex-1 lg:max-w-none">
-            <KpiCard
-              label="PDHRA"
-              value={readiness.pdhra_compliance_pct.toFixed(0)}
-              unit="%"
-              tone={readinessTone(readiness.pdhra_compliance_pct)}
-            />
-          </div>
-        </section>
+          post-deployment compliance follow-up (PDHRA). On mobile they collapse
+          into a single 2x2 grid (PDHRA as the 4th cell). */}
+      <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
+        <h2 className="col-span-2 font-mono text-[11px] uppercase tracking-wider text-muted lg:col-span-3">
+          Deployment Readiness
+        </h2>
+        <h2 className="hidden font-mono text-[11px] uppercase tracking-wider text-muted lg:block lg:col-span-1">
+          Health Compliance
+        </h2>
+        <KpiCard
+          label="% Deployable"
+          value={readiness.pct_deployable.toFixed(1)}
+          unit="%"
+          delta={readiness.delta_from_last_week}
+          tone={readinessTone(readiness.pct_deployable)}
+          hint="vs last week"
+        />
+        <KpiCard label="Total Assigned" value={readiness.total_assigned} />
+        <KpiCard
+          label="Non-Deployable"
+          value={readiness.non_deployable_count}
+          tone="danger"
+          hint="require action"
+        />
+        <KpiCard
+          label="PDHRA"
+          value={readiness.pdhra_compliance_pct.toFixed(0)}
+          unit="%"
+          tone={readinessTone(readiness.pdhra_compliance_pct)}
+        />
       </div>
 
       {/* Main grid */}
