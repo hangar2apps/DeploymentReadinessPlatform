@@ -1,34 +1,43 @@
-// Active-role state, persisted to localStorage. This is the app's mock-auth
-// seam — components read the current persona; the role switcher sets it.
+// Mock-auth session. A role is chosen on the login page and persisted to
+// localStorage; there's no in-app role switching (real auth via Keycloak later).
+// `role`/`persona` are null when signed out.
 
-import { createContext, useContext, useEffect, useMemo, useState } from 'react';
+import { createContext, useContext, useMemo, useState } from 'react';
 import type { ReactNode } from 'react';
 import { PERSONAS, type Persona, type Role } from '../lib/roles';
 
 const STORAGE_KEY = 'drp.role';
 
 interface RoleContextValue {
-  role: Role;
-  persona: Persona;
-  setRole: (role: Role) => void;
+  role: Role | null;
+  persona: Persona | null;
+  login: (role: Role) => void;
+  logout: () => void;
 }
 
 const RoleContext = createContext<RoleContextValue | null>(null);
 
-function readInitialRole(): Role {
+function readInitialRole(): Role | null {
   const stored = localStorage.getItem(STORAGE_KEY) as Role | null;
-  return stored && stored in PERSONAS ? stored : 'commander';
+  return stored && stored in PERSONAS ? stored : null;
 }
 
 export function RoleProvider({ children }: { children: ReactNode }) {
-  const [role, setRoleState] = useState<Role>(readInitialRole);
-
-  useEffect(() => {
-    localStorage.setItem(STORAGE_KEY, role);
-  }, [role]);
+  const [role, setRole] = useState<Role | null>(readInitialRole);
 
   const value = useMemo<RoleContextValue>(
-    () => ({ role, persona: PERSONAS[role], setRole: setRoleState }),
+    () => ({
+      role,
+      persona: role ? PERSONAS[role] : null,
+      login: (r: Role) => {
+        localStorage.setItem(STORAGE_KEY, r);
+        setRole(r);
+      },
+      logout: () => {
+        localStorage.removeItem(STORAGE_KEY);
+        setRole(null);
+      },
+    }),
     [role],
   );
 
@@ -40,4 +49,12 @@ export function useRole(): RoleContextValue {
   const ctx = useContext(RoleContext);
   if (!ctx) throw new Error('useRole must be used within RoleProvider');
   return ctx;
+}
+
+// For surfaces rendered behind the auth guard, where a persona is guaranteed.
+// eslint-disable-next-line react-refresh/only-export-components
+export function usePersona(): Persona {
+  const { persona } = useRole();
+  if (!persona) throw new Error('usePersona used outside an authenticated route');
+  return persona;
 }

@@ -1,0 +1,74 @@
+// Mock sign-in. Pick one of three seeded personas; each routes to that role's
+// single surface. No real auth — Keycloak handles that later. There is no in-app
+// role switching, so this page is the only place a role is chosen.
+
+import { Navigate, useNavigate } from 'react-router-dom';
+import { useRole } from '../context/RoleContext';
+import { PERSONAS, ROLE_ORDER } from '../lib/roles';
+import { CuiBar } from '../components/layout/CuiBar';
+
+export default function LoginPage() {
+  const { persona, login } = useRole();
+  const navigate = useNavigate();
+
+  // Already signed in — go straight to the role's surface.
+  if (persona) return <Navigate to={persona.route} replace />;
+
+  return (
+    <div className="flex min-h-screen flex-col bg-bg">
+      <CuiBar />
+      <div className="flex flex-1 items-center justify-center px-4 py-10">
+        <div className="w-full max-w-3xl">
+          <div className="mb-10 text-center">
+            <div className="font-mono text-3xl font-bold tracking-wide text-accent">
+              DRP
+            </div>
+            <h1 className="mt-2 text-xl font-semibold text-ink">
+              Deployment Readiness Platform
+            </h1>
+            <p className="mt-1 text-sm text-muted">
+              Select a role to continue — demo sign-in, no password required.
+            </p>
+          </div>
+
+          <div className="grid gap-4 sm:grid-cols-3">
+            {ROLE_ORDER.map((role) => {
+              const p = PERSONAS[role];
+              return (
+                <button
+                  key={role}
+                  type="button"
+                  onClick={() => {
+                    login(role);
+                    navigate(p.route);
+                  }}
+                  className="group flex flex-col rounded-lg border border-border bg-surface p-5 text-left transition-colors hover:border-accent"
+                >
+                  <div className="font-mono text-[11px] uppercase tracking-wider text-accent">
+                    {p.label}
+                  </div>
+                  <div className="mt-3 text-sm font-medium text-ink">
+                    {p.rank} {p.name}
+                  </div>
+                  <div className="font-mono text-xs text-muted">
+                    {p.unit_label}
+                  </div>
+                  <p className="mt-3 flex-1 text-xs leading-snug text-muted">
+                    {p.blurb}
+                  </p>
+                  <div className="mt-4 font-mono text-xs text-muted group-hover:text-accent">
+                    Sign in →
+                  </div>
+                </button>
+              );
+            })}
+          </div>
+
+          <p className="mt-8 text-center font-mono text-[10px] uppercase tracking-wider text-muted">
+            CUI // DEMO — NOT ACTUAL PHI
+          </p>
+        </div>
+      </div>
+    </div>
+  );
+}

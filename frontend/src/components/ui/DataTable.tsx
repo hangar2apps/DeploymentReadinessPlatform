@@ -23,6 +23,11 @@ export function DataTable<T>({
 }) {
   const align = { left: 'text-left', right: 'text-right', center: 'text-center' };
 
+  // No data — show only the empty state, not an orphaned header row.
+  if (rows.length === 0) {
+    return <div className="px-3 py-8 text-center text-muted">{empty}</div>;
+  }
+
   return (
     <div className="overflow-x-auto">
       <table className="w-full border-collapse text-sm">
@@ -39,14 +44,7 @@ export function DataTable<T>({
           </tr>
         </thead>
         <tbody>
-          {rows.length === 0 ? (
-            <tr>
-              <td colSpan={columns.length} className="px-3 py-8 text-center text-muted">
-                {empty}
-              </td>
-            </tr>
-          ) : (
-            rows.map((row) => (
+          {rows.map((row) => (
               <tr
                 key={rowKey(row)}
                 onClick={onRowClick ? () => onRowClick(row) : undefined}
@@ -63,8 +61,7 @@ export function DataTable<T>({
                   </td>
                 ))}
               </tr>
-            ))
-          )}
+          ))}
         </tbody>
       </table>
     </div>

@@ -31,16 +31,30 @@ export const units: Unit[] = [
   { id: D, uic: 'WJ5TD0', name: 'Delta Company', short_name: 'D CO', parent_unit_id: BN },
 ];
 
-// A representative slice of the 90 seeded soldiers (demo characters + a few).
+// The 12 non-deployable soldiers across the battalion, plus the deployable demo
+// characters. Counts per company match battalionReadiness.by_company and the
+// category breakdown in redFlagSummary so commander drill-downs are consistent
+// in mock mode: A 2, B 6, C 2, D 2 (HHC 0). The real backend returns all 90.
 export const serviceMembers: ServiceMember[] = [
   { id: 'sm-harris', edipi: '1000000001', rank: 'LTC', last_name: 'Harris', first_name: 'Robert', middle_initial: 'J', mos: '11A', unit_id: HHC, deployable: true, deployable_reason: null },
   { id: 'sm-chen', edipi: '1000000002', rank: 'CPT', last_name: 'Chen', first_name: 'Michael', middle_initial: 'A', mos: '62B', unit_id: HHC, deployable: true, deployable_reason: null },
   { id: 'sm-rodriguez', edipi: '2000000001', rank: 'SPC', last_name: 'Rodriguez', first_name: 'Luis', middle_initial: 'M', mos: '11B', unit_id: A, deployable: true, deployable_reason: null },
+  // A CO — 2 non-deployable (1 Dental Class 4, 1 Pregnancy)
   { id: 'sm-coleman', edipi: '2000000002', rank: 'SGT', last_name: 'Coleman', first_name: 'Brianne', middle_initial: 'T', mos: '68W', unit_id: A, deployable: false, deployable_reason: 'Dental' },
+  { id: 'sm-okafor', edipi: '2000000003', rank: 'SPC', last_name: 'Okafor', first_name: 'Amara', middle_initial: 'N', mos: '42A', unit_id: A, deployable: false, deployable_reason: 'Pregnancy' },
+  // B CO — 6 non-deployable (3 Dental, 2 Behavioral Health, 1 Pregnancy)
   { id: 'sm-bailey', edipi: '3000000001', rank: 'SPC', last_name: 'Bailey', first_name: 'Marcus', middle_initial: 'T', mos: '11B', unit_id: B, deployable: false, deployable_reason: 'Behavioral Health' },
   { id: 'sm-nguyen', edipi: '3000000002', rank: 'PFC', last_name: 'Nguyen', first_name: 'Kevin', middle_initial: 'D', mos: '11B', unit_id: B, deployable: false, deployable_reason: 'Dental' },
+  { id: 'sm-fisher', edipi: '3000000003', rank: 'PFC', last_name: 'Fisher', first_name: 'Dylan', middle_initial: 'R', mos: '11B', unit_id: B, deployable: false, deployable_reason: 'Dental' },
+  { id: 'sm-grant', edipi: '3000000004', rank: 'SPC', last_name: 'Grant', first_name: 'Tyrell', middle_initial: 'J', mos: '68W', unit_id: B, deployable: false, deployable_reason: 'Dental' },
   { id: 'sm-reyes', edipi: '3000000005', rank: 'SPC', last_name: 'Reyes', first_name: 'Daniela', middle_initial: 'M', mos: '42A', unit_id: B, deployable: false, deployable_reason: 'Pregnancy' },
+  { id: 'sm-mendez', edipi: '3000000006', rank: 'SGT', last_name: 'Mendez', first_name: 'Hector', middle_initial: 'L', mos: '11B', unit_id: B, deployable: false, deployable_reason: 'Behavioral Health' },
+  // C CO — 2 non-deployable (1 Behavioral Health, 1 Dental)
   { id: 'sm-holt', edipi: '4000000001', rank: 'SPC', last_name: 'Holt', first_name: 'Brandon', middle_initial: 'K', mos: '11B', unit_id: C, deployable: false, deployable_reason: 'Behavioral Health' },
+  { id: 'sm-park', edipi: '4000000002', rank: 'SPC', last_name: 'Park', first_name: 'Jin', middle_initial: 'S', mos: '25U', unit_id: C, deployable: false, deployable_reason: 'Dental' },
+  // D CO — 2 non-deployable (1 Dental, 1 Behavioral Health)
+  { id: 'sm-walsh', edipi: '5000000001', rank: 'PFC', last_name: 'Walsh', first_name: 'Connor', middle_initial: 'M', mos: '11B', unit_id: D, deployable: false, deployable_reason: 'Dental' },
+  { id: 'sm-dixon', edipi: '5000000002', rank: 'SPC', last_name: 'Dixon', first_name: 'Andre', middle_initial: 'A', mos: '92G', unit_id: D, deployable: false, deployable_reason: 'Behavioral Health' },
 ];
 
 export const assessmentList: AssessmentListItem[] = [

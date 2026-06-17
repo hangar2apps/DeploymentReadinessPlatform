@@ -1,5 +1,6 @@
 {
     "git.ignoreLimitWarning": true,
+    "workbench.browser.openLocalhostLinks": false,
     "python.analysis.typeCheckingMode": "standard",
     "cSpell.words": [
         "edipi",
@@ -7,3 +8,4 @@
         "rollup"
     ]
 }
+

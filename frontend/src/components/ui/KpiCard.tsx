@@ -33,7 +33,7 @@ export function KpiCard({
   const arrow = delta === undefined || delta === 0 ? '▬' : delta > 0 ? '▲' : '▼';
 
   return (
-    <div className="rounded-lg border border-border bg-surface p-4">
+    <div className="h-full rounded-lg border border-border bg-surface p-4">
       <div className="font-mono text-[11px] uppercase tracking-wider text-muted">
         {label}
       </div>

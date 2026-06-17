@@ -10,6 +10,9 @@ export function CompanyReadiness({
 }) {
   return (
     <div className="space-y-3">
+      <p className="text-[10px] uppercase tracking-wider text-muted">
+        Click a company to drill into its roster
+      </p>
       {rows.map((row) => {
         const tone = readinessTone(row.pct);
         return (
@@ -39,9 +42,6 @@ export function CompanyReadiness({
           </button>
         );
       })}
-      <p className="pt-1 text-[10px] uppercase tracking-wider text-muted">
-        Click a company to drill into its roster
-      </p>
     </div>
   );
 }

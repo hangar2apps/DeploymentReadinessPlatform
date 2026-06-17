@@ -6,7 +6,8 @@ export type Role = 'service_member' | 'provider' | 'commander';
 
 export interface Persona {
   role: Role;
-  label: string; // switcher label
+  label: string; // role label
+  blurb: string; // one-line surface description (login card)
   name: string; // display name
   rank: string;
   member_id: string; // service_members.id (seed)
@@ -19,6 +20,7 @@ export const PERSONAS: Record<Role, Persona> = {
   service_member: {
     role: 'service_member',
     label: 'Service Member',
+    blurb: 'Complete your deployment health assessment',
     name: 'Rodriguez, Luis M.',
     rank: 'SPC',
     member_id: 'sm-rodriguez',
@@ -29,6 +31,7 @@ export const PERSONAS: Record<Role, Persona> = {
   provider: {
     role: 'provider',
     label: 'Provider',
+    blurb: 'Review red flags, certify and refer assessments',
     name: 'Chen, Michael A.',
     rank: 'CPT',
     member_id: 'sm-chen',
@@ -39,6 +42,7 @@ export const PERSONAS: Record<Role, Persona> = {
   commander: {
     role: 'commander',
     label: 'Commander',
+    blurb: 'Battalion readiness dashboard and CUB brief',
     name: 'Harris, Robert J.',
     rank: 'LTC',
     member_id: 'sm-harris',
