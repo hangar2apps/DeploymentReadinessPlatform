@@ -1,1 +1,47 @@
 @import "tailwindcss";
+
+@import url('https://fonts.googleapis.com/css2?family=Sora:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500;700&display=swap');
+
+@theme {
+  /* surfaces */
+  --color-bg: #0e1613;
+  --color-surface: #16211d;
+  --color-surface-2: #1c2a25;
+  --color-border: #2a3a33;
+  --color-muted: #8a9b93;
+  --color-ink: #e7ece9;
+
+  /* brand + status */
+  --color-accent: #c5d64a;
+  --color-ok: #4ade80;
+  --color-warn: #fbbf24;
+  --color-danger: #f87171;
+
+  /* severity (flag badges) */
+  --color-sev-high: #f87171;
+  --color-sev-medium: #fbbf24;
+  --color-sev-low: #60a5fa;
+  --color-sev-none: #4ade80;
+
+  /* fonts — Sora body, JetBrains Mono for data/labels */
+  --font-sans: 'Sora', system-ui, sans-serif;
+  --font-mono: 'JetBrains Mono', ui-monospace, monospace;
+}
+
+html, body, #root {
+  height: 100%;
+}
+
+body {
+  margin: 0;
+  background-color: var(--color-bg);
+  color: var(--color-ink);
+  font-family: var(--font-sans);
+  -webkit-font-smoothing: antialiased;
+}
+
+/* thin scrollbars to match the dense, utilitarian aesthetic */
+* {
+  scrollbar-width: thin;
+  scrollbar-color: var(--color-border) transparent;
+}

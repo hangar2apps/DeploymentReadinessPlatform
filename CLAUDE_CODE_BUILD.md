@@ -48,60 +48,7 @@ RAG service (python server.py)           ← localhost:50051 (only needed for po
 
 ## Data Model
 
-```sql
-CREATE TABLE units (
-  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  uic VARCHAR(20) UNIQUE NOT NULL,        -- Unit Identification Code
-  name VARCHAR(255) NOT NULL,             -- e.g., "Alpha Company"
-  short_name VARCHAR(50),                 -- e.g., "A CO"
-  parent_unit_id UUID REFERENCES units(id), -- self-ref for hierarchy (BN → CO → PLT)
-  created_at TIMESTAMPTZ DEFAULT now()
-);
-
-CREATE TABLE service_members (
-  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  edipi VARCHAR(10) UNIQUE NOT NULL,      -- 10-digit DoD ID
-  rank VARCHAR(10) NOT NULL,              -- e.g., "SPC", "SGT", "CPT"
-  last_name VARCHAR(100) NOT NULL,
-  first_name VARCHAR(100) NOT NULL,
-  middle_initial VARCHAR(1),
-  mos VARCHAR(10) NOT NULL,               -- Military Occupational Specialty
-  unit_id UUID REFERENCES units(id) NOT NULL,
-  deployable BOOLEAN DEFAULT true,
-  deployable_reason VARCHAR(255),         -- null if deployable, otherwise category
-  created_at TIMESTAMPTZ DEFAULT now()
-);
-
-CREATE TABLE assessments (
-  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  service_member_id UUID REFERENCES service_members(id) NOT NULL,
-  type VARCHAR(10) NOT NULL CHECK (type IN ('PRE', 'POST', 'PDHRA')),
-  status VARCHAR(20) NOT NULL DEFAULT 'DRAFT' CHECK (status IN ('DRAFT', 'SUBMITTED', 'UNDER_REVIEW', 'CERTIFIED', 'REFERRED')),
-  responses JSONB NOT NULL DEFAULT '{}',  -- flexible schema for questionnaire answers
-  phq9_score INTEGER,                     -- auto-calculated from responses
-  pcl5_score INTEGER,                     -- auto-calculated from responses
-  submitted_at TIMESTAMPTZ,
-  certified_at TIMESTAMPTZ,
-  certified_by UUID REFERENCES service_members(id),
-  referral_type VARCHAR(50),              -- 'BEHAVIORAL_HEALTH', 'DENTAL', etc.
-  referral_notes TEXT,
-  created_at TIMESTAMPTZ DEFAULT now()
-);
-
-CREATE TABLE red_flags (
-  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  assessment_id UUID REFERENCES assessments(id) NOT NULL,
-  type VARCHAR(50) NOT NULL,              -- 'PHQ9_ELEVATED', 'PCL5_ELEVATED', 'DENTAL_CLASS_3', etc.
-  severity VARCHAR(10) NOT NULL CHECK (severity IN ('LOW', 'MEDIUM', 'HIGH')),
-  rule_fired VARCHAR(255) NOT NULL,       -- human-readable rule description
-  message TEXT NOT NULL,                  -- display message for provider
-  resolved_at TIMESTAMPTZ,
-  created_at TIMESTAMPTZ DEFAULT now()
-);
-
--- document_chunks table already exists in Supabase (created during pre-hackathon RAG ingestion)
--- Do not recreate or modify it
-```
+ 
 
 ## Red-Flag Rules
 
