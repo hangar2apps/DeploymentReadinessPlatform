@@ -2,6 +2,8 @@
 
 Master coordination doc. Each person also has a focused file in `team/`.
 Full product context: `DRP_SPEC.md`. Build details: `CLAUDE_CODE_BUILD.md`.
+Domain primer (how deployment health works today + how DRP fixes it, with
+flowcharts): `team/deployment-health-flow.md` — read this first if the domain is new.
 
 ## Team (5 people)
 
