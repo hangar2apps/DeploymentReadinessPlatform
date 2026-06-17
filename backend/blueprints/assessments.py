@@ -37,6 +37,38 @@ def _flags_for(assessment_id: str) -> list[RealDictRow]:
     )
 
 
+def _reason_from_referral_type(referral_type):
+    """Normalize referral categories to the commander-dashboard display values."""
+    mapping = {
+        "BEHAVIORAL_HEALTH": "Behavioral Health",
+        "DENTAL": "Dental",
+        "PREGNANCY": "Pregnancy",
+    }
+    if referral_type in mapping:
+        return mapping[referral_type]
+    return str(referral_type).replace("_", " ").title()
+
+
+def _remaining_high_flag_reason(service_member_id):
+    """Return the category for any remaining unresolved HIGH flag, else None."""
+    row = db.query_one(
+        """
+        SELECT rf.type
+        FROM red_flags rf
+        JOIN assessments a ON a.id = rf.assessment_id
+        WHERE a.service_member_id = %s
+          AND rf.resolved_at IS NULL
+          AND rf.severity = 'HIGH'
+        ORDER BY rf.created_at ASC
+        LIMIT 1
+        """,
+        (service_member_id,),
+    )
+    if not row:
+        return None
+    return rules._REASON_BY_TYPE.get(row["type"], "Medical")
+
+
 @bp.get("")
 def list_assessments() -> Response:
     """
@@ -158,11 +190,24 @@ def certify(assessment_id: UUID) -> Tuple[Response, int]:
     if not row:
         return jsonify({"error": "assessment not found"}), 404
 
-    # Certification clears the member for deployment.
+    # Certification resolves this assessment's flags, but the member only
+    # becomes deployable again if no other unresolved HIGH flag remains.
     db.execute(
-        "UPDATE service_members SET deployable = true, deployable_reason = NULL "
+        "UPDATE red_flags SET resolved_at = now() "
+        "WHERE assessment_id = %s AND resolved_at IS NULL",
+        (str(assessment_id),),
+        returning=False,
+    )
+
+    remaining_reason = _remaining_high_flag_reason(row["service_member_id"])
+    db.execute(
+        "UPDATE service_members SET deployable = %s, deployable_reason = %s "
         "WHERE id = %s",
-        (row["service_member_id"],),
+        (
+            remaining_reason is None,
+            remaining_reason,
+            row["service_member_id"],
+        ),
         returning=False,
     )
     return jsonify(row), 200
@@ -197,7 +242,7 @@ def refer(assessment_id: UUID) -> Tuple[Response, int]:
     db.execute(
         "UPDATE service_members SET deployable = false, deployable_reason = %s "
         "WHERE id = %s",
-        (referral_type, row["service_member_id"]),
+        (_reason_from_referral_type(referral_type), row["service_member_id"]),
         returning=False,
     )
     return jsonify(row), 200
