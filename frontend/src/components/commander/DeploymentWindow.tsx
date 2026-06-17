@@ -1,8 +1,7 @@
 // Deployment window tracker. No mobilization date is seeded, so this uses a
 // fixed demo D-date to show the "days to LAD" countdown the commander briefs to.
 
-const LATEST_ARRIVAL = new Date('2026-09-01T00:00:00Z'); // demo LAD
-const WINDOW_OPEN = new Date('2026-05-01T00:00:00Z');
+import { LATEST_ARRIVAL, WINDOW_OPEN } from '../../lib/deployment';
 
 export function DeploymentWindow({ pctDeployable }: { pctDeployable: number }) {
   const now = new Date();

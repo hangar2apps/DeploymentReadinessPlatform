@@ -10,9 +10,13 @@ export function AttentionRequired({ items }: { items: RedFlagSummaryItem[] }) {
             {item.soldier_count}
           </span>
           <div className="min-w-0 flex-1">
-            <div className="flex items-center gap-2">
-              <span className="truncate text-sm text-ink">{item.category}</span>
-              <SeverityBadge severity={item.severity} />
+            <div className="flex items-start gap-2">
+              <span className="flex-1 text-sm leading-snug text-ink">
+                {item.category}
+              </span>
+              <span className="mt-0.5 shrink-0">
+                <SeverityBadge severity={item.severity} />
+              </span>
             </div>
             <div className="mt-0.5 flex flex-wrap gap-1">
               {item.units.map((u) => (

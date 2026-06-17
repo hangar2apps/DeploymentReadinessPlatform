@@ -1,60 +1,29 @@
-import { NavLink } from 'react-router-dom';
-import { useRole } from '../../context/RoleContext';
+// Shell sidebar: brand, a role-supplied nav slot (e.g. the commander's unit
+// roster), and the signed-in identity + sign out. Hidden on mobile — surfaces
+// stay usable without it.
 
-interface NavItem {
-  to: string;
-  label: string;
-  desc: string;
-}
-
-const NAV: NavItem[] = [
-  { to: '/assessment', label: 'Assessment', desc: 'Service member' },
-  { to: '/provider', label: 'Provider Queue', desc: 'Review & certify' },
-  { to: '/commander', label: 'Commander', desc: 'Readiness dashboard' },
-];
+import { useNavigate } from 'react-router-dom';
+import { usePersona, useRole } from '../../context/RoleContext';
+import { useLayout } from '../../context/LayoutContext';
 
 export function Sidebar() {
-  const { persona } = useRole();
+  const persona = usePersona();
+  const { logout } = useRole();
+  const { sidebarNav } = useLayout();
+  const navigate = useNavigate();
 
   return (
-    <aside className="flex w-56 shrink-0 flex-col border-r border-border bg-surface">
-      <div className="border-b border-border px-4 py-4">
+    <aside className="hidden w-56 shrink-0 flex-col border-r border-border bg-surface md:flex">
+      <div className="flex h-14 flex-col justify-center border-b border-border px-4">
         <div className="font-mono text-sm font-bold tracking-wide text-accent">
           DRP
         </div>
-        <div className="mt-0.5 text-[10px] uppercase tracking-wider text-muted">
+        <div className="text-[10px] uppercase tracking-wider text-muted">
           Deployment Readiness
         </div>
       </div>
 
-      <nav className="flex-1 p-2">
-        {NAV.map((item) => (
-          <NavLink
-            key={item.to}
-            to={item.to}
-            className={({ isActive }) =>
-              `mb-1 block rounded-md px-3 py-2 transition-colors ${
-                isActive
-                  ? 'bg-surface-2 text-ink'
-                  : 'text-muted hover:bg-surface-2 hover:text-ink'
-              }`
-            }
-          >
-            {({ isActive }) => (
-              <>
-                <div
-                  className={`text-sm font-medium ${isActive ? 'text-accent' : ''}`}
-                >
-                  {item.label}
-                </div>
-                <div className="text-[10px] uppercase tracking-wider text-muted">
-                  {item.desc}
-                </div>
-              </>
-            )}
-          </NavLink>
-        ))}
-      </nav>
+      <div className="min-h-0 flex-1 overflow-y-auto p-2">{sidebarNav}</div>
 
       <div className="border-t border-border px-4 py-3">
         <div className="font-mono text-[10px] uppercase tracking-wider text-muted">
@@ -63,6 +32,19 @@ export function Sidebar() {
         <div className="mt-0.5 font-mono text-xs text-ink">
           {persona.rank} {persona.name}
         </div>
+        <div className="font-mono text-[10px] uppercase tracking-wider text-muted">
+          {persona.label}
+        </div>
+        <button
+          type="button"
+          onClick={() => {
+            logout();
+            navigate('/login');
+          }}
+          className="mt-2 w-full rounded-md border border-border px-3 py-1.5 font-mono text-[11px] uppercase tracking-wider text-muted transition-colors hover:border-danger hover:text-danger"
+        >
+          Sign out
+        </button>
       </div>
     </aside>
   );
