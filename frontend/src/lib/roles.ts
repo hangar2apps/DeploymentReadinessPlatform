@@ -46,7 +46,10 @@ export const PERSONAS: Record<Role, Persona> = {
     name: 'Harris, Robert J.',
     rank: 'LTC',
     member_id: 'sm-harris',
-    unit_id: 'unit-bn',
+    // The commander scopes to the battalion = top of the hierarchy, which is the
+    // backend's default when unit_id is omitted. Empty so the API client drops
+    // the param (real UUIDs are generated server-side; no hardcoded id to send).
+    unit_id: '',
     unit_label: '1-327 IN',
     route: '/commander',
   },
