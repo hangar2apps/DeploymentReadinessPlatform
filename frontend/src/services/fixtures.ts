@@ -4,6 +4,7 @@
 // the readiness rollup carries the real battalion-wide aggregates.
 
 import type {
+  Assessment,
   AssessmentDetail,
   AssessmentListItem,
   CommanderChatResponse,
@@ -166,6 +167,14 @@ export const assessmentList: AssessmentListItem[] = [
     flags: [],
   },
 ];
+
+// Current-cycle assessment per member, for the service-member landing screen.
+// Demo persona Rodriguez has no open assessment (null -> NOT_STARTED) so the
+// questionnaire flow is reachable end-to-end. (His as-rodriguez record above is
+// a prior, already-certified cycle.) Add members here as the demo needs them.
+export const myAssessments: Record<string, Assessment | null> = {
+  'sm-rodriguez': null,
+};
 
 // Full detail for every queue row, so the provider drawer drill-down works in
 // mock mode. Member/unit are joined from the entity fixtures.
