@@ -122,7 +122,22 @@ def ingest_document(
     }
 
 
-def ask_policy(question: str, max_chunks: int = 5) -> dict[str, Any]:
+# Lead with the substantive answer; don't make the model hedge or editorialize
+# about what the excerpts lack — that produced unhelpful "the context does not
+# provide…" responses even when the policy was right there.
+_POLICY_SYSTEM = (
+    "You are a U.S. military deployment-health policy assistant helping a "
+    "provider. Answer the question directly and concisely using the policy "
+    "excerpts provided, synthesizing across them. State what the policy says and "
+    "cite specifics (numbers, thresholds, dental classes, timeframes) when they "
+    "appear. Do NOT preface the answer with disclaimers like 'the context does "
+    "not provide' and do NOT append a 'What's missing' section. Only if the "
+    "excerpts contain nothing relevant to the question, say you couldn't find it "
+    "in the available policy documents. Use plain prose."
+)
+
+
+def ask_policy(question: str, max_chunks: int = 8) -> dict[str, Any]:
     """
     Answer a question grounded in the ingested documents.
 
@@ -140,13 +155,13 @@ def ask_policy(question: str, max_chunks: int = 5) -> dict[str, Any]:
         ORDER BY embedding <=> %s
         LIMIT %s
         """,
-        (str(query_embedding), str(query_embedding), max_chunks or 5),
+        (str(query_embedding), str(query_embedding), max_chunks or 8),
     )
 
     sources = []
     context_parts = []
     for row in rows:
-        context_parts.append(row["content"])
+        context_parts.append(f"[{row['source']}]\n{row['content']}")
         sources.append({
             "document_name": row["source"],
             "chunk_text": row["content"][:1000],
@@ -155,17 +170,8 @@ def ask_policy(question: str, max_chunks: int = 5) -> dict[str, Any]:
 
     context_str = "\n\n---\n\n".join(context_parts)
 
-    prompt = f"""Answer the following question using the provided context.
-    If the context only partially answers the question, provide what you can and note what's missing.
-
-    CONTEXT:
-    {context_str}
-
-    QUESTION: {question}
-
-    ANSWER:"""
-
-    response = _get_llm().invoke(prompt)
+    user = f"POLICY EXCERPTS:\n{context_str}\n\nQUESTION: {question}"
+    response = _get_llm().invoke([("system", _POLICY_SYSTEM), ("human", user)])
 
     return {"answer": response.content, "sources": sources}
 
