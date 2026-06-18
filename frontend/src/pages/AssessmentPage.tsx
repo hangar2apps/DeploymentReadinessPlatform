@@ -1,5 +1,9 @@
 import { Activity, useCallback, useEffect, useMemo, useState } from 'react';
-import type { Assessment, AssessmentResponses } from '../types/drp';
+import type {
+  Assessment,
+  AssessmentResponses,
+  AssessmentType,
+} from '../types/drp';
 import {
   createAssessment,
   getMyAssessment,
@@ -34,6 +38,8 @@ export default function AssessmentPage() {
   const [photoName, setPhotoName] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [type, setType] = useState<AssessmentType>('PRE');
+  const [assessedType, setAssessedType] = useState<AssessmentType | null>(null);
   // The real (UUID) service member id, resolved from the persona's EDIPI. The
   // persona.member_id is a fixture string, so the backend can't accept it.
   const [memberId, setMemberId] = useState<string | null>(null);
@@ -51,7 +57,17 @@ export default function AssessmentPage() {
         if (!active) return;
         if (a) {
           setStatus(a.status);
-          if (a.status !== 'DRAFT') setPhase('submitted');
+          setAssessedType(a.type);
+          if (a.status === 'DRAFT') {
+            // Resume an in-progress assessment under its own type.
+            setType(a.type);
+          } else if (a.type === 'PRE') {
+            // Completed pre-deployment screen -> post is now due; stay on the
+            // landing so it can be started instead of showing the submitted view.
+            setType('POST');
+          } else {
+            setPhase('submitted');
+          }
           return;
         }
         const d = await loadDraft(persona.member_id);
@@ -60,6 +76,7 @@ export default function AssessmentPage() {
           setResponses(d.responses ?? {});
           setPhotoName(d.photoName ?? null);
           setStep(d.step ?? 0);
+          setType(d.type ?? 'PRE');
           setStatus('DRAFT');
         } else {
           setStatus('NOT_STARTED');
@@ -78,8 +95,8 @@ export default function AssessmentPage() {
 
   useEffect(() => {
     if (phase !== 'form') return;
-    void saveDraft(persona.member_id, { step, responses, photoName });
-  }, [phase, step, responses, photoName, persona.member_id]);
+    void saveDraft(persona.member_id, { step, responses, photoName, type });
+  }, [phase, step, responses, photoName, type, persona.member_id]);
 
   const set: SetResponse = (key, value) =>
     setResponses((r) => ({ ...r, [key]: value }));
@@ -88,8 +105,15 @@ export default function AssessmentPage() {
 
   const sections = useMemo<SectionDef[]>(
     () =>
-      buildSections({ responses, set, persona, photoName, onPhoto: handlePhoto }),
-    [responses, photoName, persona],
+      buildSections({
+        responses,
+        set,
+        persona,
+        photoName,
+        onPhoto: handlePhoto,
+        type,
+      }),
+    [responses, photoName, persona, type],
   );
 
   const flat = useMemo(() => {
@@ -135,7 +159,7 @@ export default function AssessmentPage() {
     try {
       const created = await createAssessment({
         service_member_id: memberId,
-        type: 'PRE',
+        type,
         responses,
       });
       setStatus(created.status);
@@ -148,7 +172,7 @@ export default function AssessmentPage() {
     }
   }
 
-  const { setSeed } = useDev();
+  const { setSeed, setTypeControl } = useDev();
 
   const devClean = useCallback(() => {
     setResponses({});
@@ -179,6 +203,12 @@ export default function AssessmentPage() {
     return () => setSeed(null);
   }, [setSeed, devClean, devPartial, devDone]);
 
+  useEffect(() => {
+    if (!import.meta.env.DEV) return;
+    setTypeControl({ value: type, set: setType });
+    return () => setTypeControl(null);
+  }, [setTypeControl, type]);
+
   if (bootstrapping) {
     return (
       <LoadingScreen
@@ -191,14 +221,18 @@ export default function AssessmentPage() {
   let body;
 
   if (phase === 'landing') {
+    // Show the selected type's status; switching to a not-yet-done type reads
+    // as NOT_STARTED so its Start button appears.
+    const landingStatus =
+      assessedType && type === assessedType ? status : 'NOT_STARTED';
     body = (
-      <div className="mx-auto max-w-3xl">
+      <div className="mx-auto max-w-3xl space-y-4">
         <StatusLanding
           memberName={`${persona.rank} ${persona.name}`}
-          status={status}
-          type="PRE"
+          status={landingStatus}
+          type={type}
           onStart={() => {
-            if (status !== 'DRAFT') {
+            if (landingStatus !== 'DRAFT') {
               setStep(0);
               setResponses({});
               setPhotoName(null);
@@ -214,7 +248,7 @@ export default function AssessmentPage() {
         <StatusLanding
           memberName={`${persona.rank} ${persona.name}`}
           status={status}
-          type="PRE"
+          type={type}
           onStart={() => {}}
         />
       </div>
@@ -225,6 +259,9 @@ export default function AssessmentPage() {
     const section = current.section;
     const answerable = flat.filter((f) => f.screen.key !== 'review');
     const completed = answerable.filter((f) => f.screen.done).length;
+    // Submit requires every screen done (incl. attestation), so jump-nav can't
+    // skip required answers and submit incomplete.
+    const allDone = flat.every((f) => f.screen.done);
 
     body = (
       <div className="mx-auto max-w-2xl space-y-4">
@@ -283,9 +320,9 @@ export default function AssessmentPage() {
           {isLast ? (
             <button
               type="button"
-              disabled={submitting}
+              disabled={submitting || !allDone}
               onClick={handleSubmit}
-              className="rounded-md bg-accent px-5 py-2 text-sm font-semibold text-bg hover:opacity-90 disabled:opacity-50"
+              className="rounded-md bg-accent px-5 py-2 text-sm font-semibold text-bg hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-50"
             >
               {submitting ? 'Submitting…' : 'Submit assessment'}
             </button>

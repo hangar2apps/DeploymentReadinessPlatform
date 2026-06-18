@@ -1,4 +1,5 @@
-import type { AssessmentResponses } from '../../../types/drp';
+import type { AssessmentResponses, AssessmentType } from '../../../types/drp';
+import type { SetResponse } from '../types';
 import { PHQ9_ITEMS, PCL5_ITEMS } from '../../../lib/questionnaire';
 
 function fmtBool(v: unknown): string {
@@ -21,26 +22,60 @@ function countAnswered(r: AssessmentResponses, prefix: string, total: number) {
 }
 
 export function ReviewStep({
-  responses,
+  responses: r,
   photoName,
+  type,
+  set,
 }: {
   responses: AssessmentResponses;
   photoName: string | null;
+  type: AssessmentType;
+  set: SetResponse;
 }) {
-  const rows: [string, string][] = [
-    ['Dental class', String(responses.dental_class ?? '—')],
-    ['Immunizations current', fmtBool(responses.immunizations_current)],
+  const num = (k: string) => r[k] as number | undefined;
+  const listLen = (k: string) => (r[k] as string[] | undefined)?.length ?? 0;
+
+  const preRows: [string, string][] = [
+    ['Dental class', String(r.dental_class ?? '—')],
+    ['Immunizations current', fmtBool(r.immunizations_current)],
     ['Immunization record', photoName ?? 'not attached'],
-    ['Last PHA date', (responses.last_pha_date as string) || '—'],
-    ['New medication', fmtBool(responses.new_medication)],
-    ['Pregnant', fmtPregnancy(responses.pregnancy_status)],
+    ['Last PHA date', (r.last_pha_date as string) || '—'],
+    ['New medication', fmtBool(r.new_medication)],
+    ['Pregnant', fmtPregnancy(r.pregnancy_status)],
+  ];
+
+  const postRows: [string, string][] = [
+    [
+      'Blast exposure',
+      r.blast_exposure === true
+        ? `Yes (${num('blast_count') ?? '—'})`
+        : fmtBool(r.blast_exposure),
+    ],
+    ['Wounded or injured', fmtBool(r.wounded)],
+    ['Witnessed casualty', fmtBool(r.witnessed_casualty)],
+    ['CBRN exposure', fmtBool(r.cbrn_exposure)],
+    [
+      'Environmental hazards',
+      r.env_hazards === true
+        ? `Yes (${listLen('env_hazard_types')})`
+        : fmtBool(r.env_hazards),
+    ],
+    [
+      'TBI symptoms',
+      listLen('tbi_symptoms') ? `${listLen('tbi_symptoms')} reported` : 'None',
+    ],
+    ['Deployment health concern', fmtBool(r.deployment_health_concern)],
+  ];
+
+  const rows: [string, string][] = [
+    ...(type === 'POST' ? postRows : preRows),
     [
       'PHQ-9 answered',
-      `${countAnswered(responses, 'phq9', PHQ9_ITEMS.length)} / ${PHQ9_ITEMS.length}`,
+      `${countAnswered(r, 'phq9', PHQ9_ITEMS.length)} / ${PHQ9_ITEMS.length}`,
     ],
     [
       'PCL-5 answered',
-      `${countAnswered(responses, 'pcl5', PCL5_ITEMS.length)} / ${PCL5_ITEMS.length}`,
+      `${countAnswered(r, 'pcl5', PCL5_ITEMS.length)} / ${PCL5_ITEMS.length}`,
     ],
   ];
 
@@ -64,6 +99,19 @@ export function ReviewStep({
           </div>
         ))}
       </dl>
+
+      <label className="flex items-start gap-2 text-sm">
+        <input
+          type="checkbox"
+          checked={r.attestation === true}
+          onChange={(e) => set('attestation', e.target.checked)}
+          className="mt-0.5 accent-accent"
+        />
+        <span>
+          I attest that the responses I have provided are true and complete to
+          the best of my knowledge.
+        </span>
+      </label>
     </div>
   );
 }

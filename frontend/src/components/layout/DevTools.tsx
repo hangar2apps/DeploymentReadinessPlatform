@@ -11,7 +11,7 @@ export function DevTools() {
   const [open, setOpen] = useState(false);
   const { role, login } = useRole();
   const navigate = useNavigate();
-  const { seed } = useDev();
+  const { seed, typeControl } = useDev();
 
   if (!open) {
     return (
@@ -63,6 +63,30 @@ export function DevTools() {
           </button>
         ))}
       </div>
+
+      {typeControl && (
+        <div className="space-y-1">
+          <div className="font-mono text-[10px] uppercase tracking-wider text-muted">
+            Assessment type
+          </div>
+          <div className="flex gap-1.5">
+            {(['PRE', 'POST'] as const).map((t) => (
+              <button
+                key={t}
+                type="button"
+                onClick={() => typeControl.set(t)}
+                className={`flex-1 rounded border px-2 py-1 text-xs transition-colors ${
+                  typeControl.value === t
+                    ? 'border-accent text-accent'
+                    : 'border-border text-ink hover:border-accent hover:text-accent'
+                }`}
+              >
+                {t}
+              </button>
+            ))}
+          </div>
+        </div>
+      )}
 
       {seed && (
         <div className="space-y-1">
