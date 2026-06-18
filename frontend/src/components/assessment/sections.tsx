@@ -31,7 +31,7 @@ export interface SectionsContext {
   set: SetResponse;
   persona: Persona;
   photoName: string | null;
-  onPhoto: (name: string) => void;
+  onPhoto: (name: string | null) => void;
 }
 
 function scaleScreens(
@@ -113,6 +113,7 @@ export function buildSections({
             <ImmunizationStep
               r={r}
               set={set}
+              memberId={persona.member_id}
               photoName={photoName}
               onPhoto={onPhoto}
             />
