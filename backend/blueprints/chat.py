@@ -20,7 +20,11 @@ from blueprints.units import readiness_stats
 bp = Blueprint("chat", __name__, url_prefix="/api")
 
 # This is here in case the provider adds some HIPPA data in there.  There won't be any data coming from this application directly.
-_HIPAA_GUARDRAIL = "You are a readiness analyst assistant for a battalion commander. Answer using ONLY the structured data provided. Summarize by category and count. Do NOT include individual names, EDIPIs, or specific medical details. If the data does not cover the question, say so."
+_HIPAA_GUARDRAIL = "You are a readiness analyst assistant for a battalion commander. Answer using ONLY the structured data provided. Summarize by category and count. Do NOT include individual names, EDIPIs, or specific medical details. If the data does not cover the question, say so. Lead with a one-sentence answer. Use a short bulleted list (lines starting with '- ') only when listing multiple companies or categories — never bullet a single statement. You may use **bold** for labels. Do not use '#' headers or tables."
+
+# How many prior turns of the conversation to replay so follow-up questions
+# ("those soldiers", "what about Bravo") resolve. Bounds the prompt size.
+_MAX_HISTORY_TURNS = 6
 
 
 @bp.post("/policy-chat")
@@ -44,6 +48,12 @@ def policy_chat() -> Tuple[Response, int]:
 def _commander_context(unit_id: str) -> dict[str, Any]:
     """
     Build a HIPAA-safe, aggregate snapshot of the unit for the LLM prompt.
+
+    Everything is derived from service_members deployability (the same source of
+    truth as the dashboard KPIs and the non-deployable roster), NOT the raw
+    red_flags table. red_flags accumulate across resubmissions and aren't cleared
+    when a soldier's status changes, so counting them would let the chat drift
+    out of sync with what the commander sees on the dashboard.
     """
 
     stats = readiness_stats(unit_id)
@@ -52,23 +62,52 @@ def _commander_context(unit_id: str) -> dict[str, Any]:
         "SELECT id, short_name FROM units WHERE parent_unit_id = %s ORDER BY name",
         (unit_id,),
     )
+
+    # Per-company breakdown of the non-deployable soldiers by reason category, so
+    # "why is C CO not at 100%?" is answered with the actual blockers — and the
+    # counts always match the company's non-deployable roster.
+    company_reason_rows = db.query(
+        """
+        SELECT u.short_name AS unit,
+               COALESCE(sm.deployable_reason, 'Unspecified') AS reason,
+               COUNT(*) AS soldier_count
+        FROM service_members sm
+        JOIN units u ON u.id = sm.unit_id
+        WHERE NOT sm.deployable AND u.parent_unit_id = %s
+        GROUP BY u.short_name, reason
+        ORDER BY u.short_name, soldier_count DESC
+        """,
+        (unit_id,),
+    )
+    reasons_by_unit: dict[str, list[dict[str, Any]]] = {}
+    for r in company_reason_rows:
+        reasons_by_unit.setdefault(r["unit"], []).append({
+            "reason": r["reason"],
+            "soldier_count": r["soldier_count"],
+        })
+
     by_company = [
-        {"unit": c["short_name"], **readiness_stats(str(c["id"]))} for c in companies
+        {
+            "unit": c["short_name"],
+            **readiness_stats(str(c["id"])),
+            "non_deployable_by_reason": reasons_by_unit.get(c["short_name"], []),
+        }
+        for c in companies
     ]
 
-    red_flags = db.query(
+    # Battalion-wide (subtree) non-deployable reasons.
+    non_deployable_by_reason = db.query(
         """
         WITH RECURSIVE subtree AS (
           SELECT id FROM units WHERE id = %s
           UNION ALL
           SELECT u.id FROM units u JOIN subtree s ON u.parent_unit_id = s.id
         )
-        SELECT rf.type, rf.severity, COUNT(DISTINCT sm.id) AS soldier_count
-        FROM red_flags rf
-        JOIN assessments a      ON a.id = rf.assessment_id
-        JOIN service_members sm ON sm.id = a.service_member_id
-        WHERE rf.resolved_at IS NULL AND sm.unit_id IN (SELECT id FROM subtree)
-        GROUP BY rf.type, rf.severity
+        SELECT COALESCE(sm.deployable_reason, 'Unspecified') AS reason,
+               COUNT(*) AS soldier_count
+        FROM service_members sm
+        WHERE NOT sm.deployable AND sm.unit_id IN (SELECT id FROM subtree)
+        GROUP BY reason
         ORDER BY soldier_count DESC
         """,
         (unit_id,),
@@ -77,7 +116,7 @@ def _commander_context(unit_id: str) -> dict[str, Any]:
     return {
         "battalion": stats,
         "by_company": by_company,
-        "red_flags_by_category": red_flags,
+        "non_deployable_by_reason": non_deployable_by_reason,
     }
 
 
@@ -101,6 +140,27 @@ def commander_chat() -> Tuple[Response, int]:
 
     context = _commander_context(unit_id)
 
+    # Replay prior turns so follow-ups resolve ("those soldiers" -> the unit just
+    # discussed). The fresh data JSON rides only on the current question to keep
+    # history light and the latest numbers authoritative.
+    messages: list[dict[str, str]] = [{"role": "system", "content": _HIPAA_GUARDRAIL}]
+    history = body.get("history") or []
+    if isinstance(history, list):
+        for turn in history[-_MAX_HISTORY_TURNS:]:
+            if not isinstance(turn, dict):
+                continue
+            q = (turn.get("q") or "").strip()
+            a = (turn.get("a") or "").strip()
+            if q:
+                messages.append({"role": "user", "content": q})
+            if a:
+                messages.append({"role": "assistant", "content": a})
+    messages.append({
+        "role": "user",
+        "content": f"READINESS DATA (JSON):\n{json.dumps(context, default=str)}\n\n"
+        f"QUESTION: {question}",
+    })
+
     # Lazy import so the module loads even if openai isn't installed yet.
     from openai import OpenAI
 
@@ -109,14 +169,7 @@ def commander_chat() -> Tuple[Response, int]:
         completion = client.chat.completions.create(
             model=config.OPENAI_MODEL,
             temperature=0,
-            messages=[
-                {"role": "system", "content": _HIPAA_GUARDRAIL},
-                {
-                    "role": "user",
-                    "content": f"READINESS DATA (JSON):\n{json.dumps(context, default=str)}\n\n"
-                    f"QUESTION: {question}",
-                },
-            ],
+            messages=messages,
         )
         answer = completion.choices[0].message.content
     except Exception as e:

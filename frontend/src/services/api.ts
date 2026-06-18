@@ -233,10 +233,18 @@ export function getRedFlagSummary(unitId?: string): Promise<RedFlagSummaryItem[]
 
 // ---- AI chat ----------------------------------------------------------------
 
-// Commander data chat (SQL -> LLM, HIPAA-constrained). Non-streaming.
-export function commanderChat(question: string, unitId?: string): Promise<CommanderChatResponse> {
+// Commander data chat (SQL -> LLM, HIPAA-constrained). Non-streaming. Prior
+// turns are sent as history so follow-up questions resolve ("those soldiers").
+export function commanderChat(
+  question: string,
+  unitId?: string,
+  history: { q: string; a: string }[] = [],
+): Promise<CommanderChatResponse> {
   if (MOCK_AI) return mock(fx.mockCommanderChat(question), 600);
-  return http('/api/commander/chat', { method: 'POST', body: JSON.stringify({ question, unit_id: unitId }) });
+  return http('/api/commander/chat', {
+    method: 'POST',
+    body: JSON.stringify({ question, unit_id: unitId, history }),
+  });
 }
 
 // Provider policy chat (RAG over policy docs). The real endpoint streams tokens

@@ -289,6 +289,23 @@ def _run_rule_engine(
     """
 
     flags = rules.evaluate(responses, phq9, pcl5)
+
+    # Supersede the soldier's prior unresolved flags before writing this
+    # submission's. Without this, every resubmission piles up flags that are
+    # never cleared, so the red_flags table drifts out of sync with the
+    # deployable status we set below (which reflects only this latest submission).
+    db.execute(
+        """
+        UPDATE red_flags SET resolved_at = now()
+        WHERE resolved_at IS NULL
+          AND assessment_id IN (
+            SELECT id FROM assessments WHERE service_member_id = %s
+          )
+        """,
+        (service_member_id,),
+        returning=False,
+    )
+
     inserted = []
     for f in flags:
         inserted.append(
