@@ -65,6 +65,8 @@ export function AssessmentDetailDrawer({
 
   useEffect(() => {
     if (!selected) return;
+    setNotifySent(false);
+    setError(null);
     let active = true;
     getAssessment(selected.id)
       .then((d) => {
