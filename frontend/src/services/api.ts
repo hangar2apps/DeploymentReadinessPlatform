@@ -132,6 +132,58 @@ export async function getMyAssessment(
   return member.assessments?.[0] ?? null;
 }
 
+// ---- Service-member record uploads ------------------------------------------
+export type RecordType =
+  | 'immunization'
+  | 'dental'
+  | 'vision'
+  | 'medical'
+  | 'other';
+
+// Supabase per-file limit; validated client-side too for instant feedback.
+export const MAX_UPLOAD_BYTES = 50 * 1024 * 1024;
+
+export interface UploadResult {
+  path: string;
+  bucket: string;
+}
+
+// Multipart upload to the gateway, which stores the file in the Supabase bucket
+// at <member_id>/<record_type>/<uuid>. Raw fetch (not http()) so the browser
+// sets the multipart boundary itself.
+export function uploadRecord(
+  memberId: string,
+  recordType: RecordType,
+  file: File,
+): Promise<UploadResult> {
+  if (USE_MOCKS) {
+    return mock(
+      { path: `${memberId}/${recordType}/mock-${file.name}`, bucket: 'mock' },
+      400,
+    );
+  }
+  const form = new FormData();
+  form.append('file', file);
+  form.append('member_id', memberId);
+  return fetch(`${API_URL}/api/uploads/${recordType}`, {
+    method: 'POST',
+    body: form,
+  }).then(async (res) => {
+    if (!res.ok) {
+      const msg = await res.text().catch(() => '');
+      throw new Error(`upload failed: ${res.status} ${msg}`.trim());
+    }
+    return res.json() as Promise<UploadResult>;
+  });
+}
+
+export function uploadImmunizationRecord(
+  memberId: string,
+  file: File,
+): Promise<UploadResult> {
+  return uploadRecord(memberId, 'immunization', file);
+}
+
 // ---- Draft persistence ------------------------------------------------------
 // In-progress answers, localStorage only. No backend draft endpoint exists yet;
 // when one lands (create-draft -> PATCH responses -> submit), implement it here

@@ -48,6 +48,8 @@ export interface ServiceMember {
 export interface AssessmentResponses {
   dental_class?: 1 | 2 | 3 | 4;
   immunizations_current?: boolean;
+  immunization_record_path?: string; // storage object path (bucket-relative)
+  immunization_record_filename?: string; // original name, for display
   pregnancy?: boolean;
   pregnancy_status?: 'yes' | 'no' | 'unknown';
   new_medication?: boolean;

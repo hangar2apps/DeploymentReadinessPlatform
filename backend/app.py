@@ -33,6 +33,7 @@ def create_app() -> Flask:
     from blueprints.readiness import bp as readiness_bp
     from blueprints.chat import bp as chat_bp
     from blueprints.documents import bp as documents_bp
+    from blueprints.uploads import bp as uploads_bp
 
     app.register_blueprint(assessments_bp)
     app.register_blueprint(service_members_bp)
@@ -40,6 +41,7 @@ def create_app() -> Flask:
     app.register_blueprint(readiness_bp)
     app.register_blueprint(chat_bp)
     app.register_blueprint(documents_bp)
+    app.register_blueprint(uploads_bp)
 
     @app.get("/api/health")
     def health() -> Response:

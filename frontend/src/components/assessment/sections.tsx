@@ -113,6 +113,7 @@ export function buildSections({
             <ImmunizationStep
               r={r}
               set={set}
+              memberId={persona.member_id}
               photoName={photoName}
               onPhoto={onPhoto}
             />

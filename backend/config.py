@@ -16,6 +16,12 @@ load_dotenv(_ROOT_ENV, override=False)
 # The root .env ships a full connection string. psycopg2 accepts it directly as a DSN.
 SUPABASE_CONNECTION_STRING = os.environ.get("SUPABASE_CONNECTION_STRING", "")
 
+# --- Supabase Storage (immunization record uploads) ---
+# Server-side bucket writes need the service-role key (not the publishable key).
+SUPABASE_URL = os.environ.get("SUPABASE_URL", "")
+SUPABASE_SERVICE_ROLE_KEY = os.environ.get("SUPABASE_SERVICE_ROLE_KEY", "")
+SUPABASE_BUCKET = os.environ.get("SUPABASE_BUCKET", "immunization-records")
+
 # --- OpenAI (commander data-chat LLM + policy-assistant RAG) ---
 OPENAI_API_KEY = os.environ.get("OPENAI_API_KEY", "")
 OPENAI_MODEL = os.environ.get("OPENAI_MODEL", "gpt-4o-mini")
