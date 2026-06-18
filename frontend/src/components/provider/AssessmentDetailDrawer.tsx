@@ -14,6 +14,7 @@ import {
   getAssessment,
   certifyAssessment,
   referAssessment,
+  notifyReferral,
 } from '../../services/api';
 import { SeverityBadge, StatusBadge } from '../ui/Badge';
 import { ScreenerCard } from './ScreenerCard';
@@ -60,9 +61,12 @@ export function AssessmentDetailDrawer({
   const [referType, setReferType] = useState<ReferralType>('BEHAVIORAL_HEALTH');
   const [referNotes, setReferNotes] = useState('');
   const [error, setError] = useState<string | null>(null);
+  const [notifySent, setNotifySent] = useState(false);
 
   useEffect(() => {
     if (!selected) return;
+    setNotifySent(false);
+    setError(null);
     let active = true;
     getAssessment(selected.id)
       .then((d) => {
@@ -94,7 +98,9 @@ export function AssessmentDetailDrawer({
   const loading = loadedFor !== selected.id;
   const a = detail ?? null;
   const m = a?.member ?? selected.member;
-  const pending = (a?.status ?? selected.status) === 'SUBMITTED' || (a?.status ?? selected.status) === 'UNDER_REVIEW';
+  const currentStatus = a?.status ?? selected.status;
+  const pending = currentStatus === 'SUBMITTED' || currentStatus === 'UNDER_REVIEW';
+  const canNotify = pending || currentStatus === 'REFERRED';
 
   async function certify() {
     if (busy) return;
@@ -106,6 +112,20 @@ export function AssessmentDetailDrawer({
       onClose();
     } catch {
       setError('Could not certify. Check the gateway and try again.');
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function sendNotification() {
+    if (busy) return;
+    setBusy(true);
+    setError(null);
+    try {
+      await notifyReferral(selected!.id);
+      setNotifySent(true);
+    } catch {
+      setError('Could not send notification. Check the gateway and try again.');
     } finally {
       setBusy(false);
     }
@@ -240,28 +260,40 @@ export function AssessmentDetailDrawer({
         </div>
 
         {/* Action bar */}
-        {pending && !loading && (
+        {canNotify && !loading && (
           <div className="border-t border-border p-4">
             {error && (
               <p className="mb-2 text-xs text-danger">{error}</p>
             )}
             {!showRefer ? (
-              <div className="flex gap-2">
+              <div className="space-y-2">
+                {pending && (
+                  <div className="flex gap-2">
+                    <button
+                      type="button"
+                      disabled={busy}
+                      onClick={certify}
+                      className="flex-1 rounded-md bg-ok px-3 py-2 text-sm font-medium text-bg disabled:opacity-40"
+                    >
+                      Certify — Deployable
+                    </button>
+                    <button
+                      type="button"
+                      disabled={busy}
+                      onClick={() => setShowRefer(true)}
+                      className="flex-1 rounded-md border border-danger px-3 py-2 text-sm font-medium text-danger transition-colors hover:bg-danger/10 disabled:opacity-40"
+                    >
+                      Refer — Non-Deployable
+                    </button>
+                  </div>
+                )}
                 <button
                   type="button"
-                  disabled={busy}
-                  onClick={certify}
-                  className="flex-1 rounded-md bg-ok px-3 py-2 text-sm font-medium text-bg disabled:opacity-40"
+                  disabled={busy || notifySent}
+                  onClick={sendNotification}
+                  className="w-full rounded-md border border-accent px-3 py-2 text-sm font-medium text-accent transition-colors hover:bg-accent/10 disabled:opacity-40"
                 >
-                  Certify — Deployable
-                </button>
-                <button
-                  type="button"
-                  disabled={busy}
-                  onClick={() => setShowRefer(true)}
-                  className="flex-1 rounded-md border border-danger px-3 py-2 text-sm font-medium text-danger transition-colors hover:bg-danger/10 disabled:opacity-40"
-                >
-                  Refer — Non-Deployable
+                  {notifySent ? 'Notification Sent' : 'Send Member Notification'}
                 </button>
               </div>
             ) : (
