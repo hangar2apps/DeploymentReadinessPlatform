@@ -33,7 +33,7 @@ export function DateInput({
           /* showPicker needs a user gesture */
         }
       }}
-      className={`${controlClass} cursor-pointer hover:border-accent [color-scheme:dark] [&::-webkit-calendar-picker-indicator]:opacity-0`}
+      className={`${controlClass} box-border block w-full min-w-0 appearance-none [-webkit-appearance:none] cursor-pointer hover:border-accent [color-scheme:dark] [&::-webkit-calendar-picker-indicator]:hidden [&::-webkit-date-and-time-value]:m-0 [&::-webkit-date-and-time-value]:text-left`}
     />
   );
 }
