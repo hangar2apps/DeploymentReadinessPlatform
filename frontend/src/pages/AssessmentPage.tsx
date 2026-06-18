@@ -1,5 +1,9 @@
 import { Activity, useCallback, useEffect, useMemo, useState } from 'react';
-import type { Assessment, AssessmentResponses } from '../types/drp';
+import type {
+  Assessment,
+  AssessmentResponses,
+  AssessmentType,
+} from '../types/drp';
 import {
   createAssessment,
   getMyAssessment,
@@ -19,10 +23,16 @@ import type {
   SectionDef,
   SetResponse,
 } from '../components/assessment/types';
+import { OptionGroup } from '../components/assessment/fields/OptionGroup';
 import { fullResponses, partialResponses } from '../lib/assessmentDev';
 
 type Status = Assessment['status'] | 'NOT_STARTED';
 type Phase = 'landing' | 'form' | 'submitted';
+
+const TYPE_OPTIONS: { value: AssessmentType; label: string }[] = [
+  { value: 'PRE', label: 'Pre-deployment' },
+  { value: 'POST', label: 'Post-deployment' },
+];
 
 export default function AssessmentPage() {
   const persona = usePersona();
@@ -33,6 +43,8 @@ export default function AssessmentPage() {
   const [photoName, setPhotoName] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [type, setType] = useState<AssessmentType>('PRE');
+  const [assessedType, setAssessedType] = useState<AssessmentType | null>(null);
   // The real (UUID) service member id, resolved from the persona's EDIPI. The
   // persona.member_id is a fixture string, so the backend can't accept it.
   const [memberId, setMemberId] = useState<string | null>(null);
@@ -49,6 +61,9 @@ export default function AssessmentPage() {
         if (!active) return;
         if (a) {
           setStatus(a.status);
+          setAssessedType(a.type);
+          // A completed pre-deployment screen means the post one is now due.
+          if (a.type === 'PRE' && a.status !== 'DRAFT') setType('POST');
           return;
         }
         const d = await loadDraft(persona.member_id);
@@ -85,10 +100,17 @@ export default function AssessmentPage() {
 
   const sections = useMemo<SectionDef[]>(
     () =>
-      buildSections({ responses, set, persona, photoName, onPhoto: handlePhoto }),
+      buildSections({
+        responses,
+        set,
+        persona,
+        photoName,
+        onPhoto: handlePhoto,
+        type,
+      }),
     // `set`/`handlePhoto` are stable updaters; only data deps matter here.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [responses, photoName, persona],
+    [responses, photoName, persona, type],
   );
 
   const flat = useMemo(() => {
@@ -134,7 +156,7 @@ export default function AssessmentPage() {
     try {
       const created = await createAssessment({
         service_member_id: memberId,
-        type: 'PRE',
+        type,
         responses,
       });
       setStatus(created.status);
@@ -181,14 +203,18 @@ export default function AssessmentPage() {
   let body;
 
   if (phase === 'landing') {
+    // Show the selected type's status; switching to a not-yet-done type reads
+    // as NOT_STARTED so its Start button appears.
+    const landingStatus =
+      assessedType && type === assessedType ? status : 'NOT_STARTED';
     body = (
-      <div className="mx-auto max-w-3xl">
+      <div className="mx-auto max-w-3xl space-y-4">
         <StatusLanding
           memberName={`${persona.rank} ${persona.name}`}
-          status={status}
-          type="PRE"
+          status={landingStatus}
+          type={type}
           onStart={() => {
-            if (status !== 'DRAFT') {
+            if (landingStatus !== 'DRAFT') {
               setStep(0);
               setResponses({});
               setPhotoName(null);
@@ -196,6 +222,12 @@ export default function AssessmentPage() {
             setPhase('form');
           }}
         />
+        <div className="flex flex-wrap items-center gap-3">
+          <span className="font-mono text-[11px] uppercase tracking-wider text-muted">
+            Assessment type
+          </span>
+          <OptionGroup options={TYPE_OPTIONS} value={type} onChange={setType} />
+        </div>
       </div>
     );
   } else if (phase === 'submitted') {
@@ -204,7 +236,7 @@ export default function AssessmentPage() {
         <StatusLanding
           memberName={`${persona.rank} ${persona.name}`}
           status={status}
-          type="PRE"
+          type={type}
           onStart={() => {}}
         />
       </div>

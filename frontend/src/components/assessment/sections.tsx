@@ -1,4 +1,4 @@
-import type { AssessmentResponses } from '../../types/drp';
+import type { AssessmentResponses, AssessmentType } from '../../types/drp';
 import type { Persona } from '../../lib/roles';
 import type { ScreenDef, SectionDef, SetResponse } from './types';
 import { ScaleQuestion } from './ScaleQuestion';
@@ -9,6 +9,7 @@ import { ImmunizationStep } from './steps/ImmunizationStep';
 import { ConcernsStep } from './steps/ConcernsStep';
 import { AttestationStep } from './steps/AttestationStep';
 import { ReviewStep } from './steps/ReviewStep';
+import { deploymentScreens } from './deployment';
 import {
   personalDone,
   medicalDone,
@@ -32,6 +33,7 @@ export interface SectionsContext {
   persona: Persona;
   photoName: string | null;
   onPhoto: (name: string) => void;
+  type: AssessmentType;
 }
 
 function scaleScreens(
@@ -61,45 +63,42 @@ function scaleScreens(
   });
 }
 
+// PRE includes the readiness checks (medical/dental/immunization); POST swaps
+// those for the deployment-experience section. Both share the mental-health
+// screens and the closing steps.
 export function buildSections({
   responses: r,
   set,
   persona,
   photoName,
   onPhoto,
+  type,
 }: SectionsContext): SectionDef[] {
-  return [
-    {
-      key: 'personal',
-      title: 'Personal',
-      screens: [
-        {
-          key: 'personal',
-          done: personalDone(r),
-          node: <PersonalStep r={r} set={set} persona={persona} />,
-        },
-      ],
-    },
+  const personal: SectionDef = {
+    key: 'personal',
+    title: 'Personal',
+    screens: [
+      {
+        key: 'personal',
+        done: personalDone(r),
+        node: <PersonalStep r={r} set={set} persona={persona} />,
+      },
+    ],
+  };
+
+  const preMiddle: SectionDef[] = [
     {
       key: 'medical',
       title: 'Medical',
       screens: [
-        {
-          key: 'medical',
-          done: medicalDone(r),
-          node: <MedicalStep r={r} set={set} />,
-        },
+        { key: 'medical', done: medicalDone(r), node: <MedicalStep r={r} set={set} /> },
       ],
     },
     {
       key: 'dental',
       title: 'Dental',
       screens: [
-        {
-          key: 'dental',
-          done: dentalDone(r),
-          node: <DentalStep r={r} set={set} />,
-        },
+        { key: 'dental', done: dentalDone(r), node: <DentalStep r={r} set={set} /> },
       ],
     },
     {
@@ -120,6 +119,13 @@ export function buildSections({
         },
       ],
     },
+  ];
+
+  const postMiddle: SectionDef[] = [
+    { key: 'deployment', title: 'Deployment', screens: deploymentScreens(r, set) },
+  ];
+
+  const shared: SectionDef[] = [
     {
       key: 'phq9',
       title: 'PHQ-9',
@@ -134,11 +140,7 @@ export function buildSections({
       key: 'concerns',
       title: 'Concerns',
       screens: [
-        {
-          key: 'concerns',
-          done: concernsDone(),
-          node: <ConcernsStep r={r} set={set} />,
-        },
+        { key: 'concerns', done: concernsDone(), node: <ConcernsStep r={r} set={set} /> },
       ],
     },
     {
@@ -163,5 +165,11 @@ export function buildSections({
         },
       ],
     },
+  ];
+
+  return [
+    personal,
+    ...(type === 'POST' ? postMiddle : preMiddle),
+    ...shared,
   ];
 }
