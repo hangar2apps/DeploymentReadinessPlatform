@@ -132,6 +132,59 @@ export async function getMyAssessment(
   return member.assessments?.[0] ?? null;
 }
 
+// ---- Service-member record uploads ------------------------------------------
+export type RecordType =
+  | 'immunization'
+  | 'dental'
+  | 'vision'
+  | 'medical'
+  | 'other';
+
+// Supabase per-file limit; validated client-side too for instant feedback.
+export const MAX_UPLOAD_BYTES = 50 * 1024 * 1024;
+
+export interface UploadResult {
+  path: string;
+  bucket: string;
+}
+
+// Multipart upload to the gateway, which stores the file in the Supabase bucket
+// at <member_id>/<record_type>/<uuid>. Raw fetch (not http()) so the browser
+// sets the multipart boundary itself.
+export function uploadRecord(
+  memberId: string,
+  recordType: RecordType,
+  file: File,
+): Promise<UploadResult> {
+  if (USE_MOCKS) {
+    return mock(
+      { path: `${memberId}/${recordType}/mock-${file.name}`, bucket: 'mock' },
+      400,
+    );
+  }
+  const form = new FormData();
+  form.append('file', file);
+  form.append('member_id', memberId);
+  return fetch(`${API_URL}/api/uploads/${recordType}`, {
+    method: 'POST',
+    body: form,
+    signal: AbortSignal.timeout(120_000),
+  }).then(async (res) => {
+    if (!res.ok) {
+      const msg = await res.text().catch(() => '');
+      throw new Error(`upload failed: ${res.status} ${msg}`.trim());
+    }
+    return res.json() as Promise<UploadResult>;
+  });
+}
+
+export function uploadImmunizationRecord(
+  memberId: string,
+  file: File,
+): Promise<UploadResult> {
+  return uploadRecord(memberId, 'immunization', file);
+}
+
 // ---- Draft persistence ------------------------------------------------------
 // In-progress answers, localStorage only. No backend draft endpoint exists yet;
 // when one lands (create-draft -> PATCH responses -> submit), implement it here
@@ -198,18 +251,37 @@ export function createAssessment(input: CreateAssessmentInput): Promise<Assessme
   return http('/api/assessments', { method: 'POST', body: JSON.stringify(input) });
 }
 
-export function certifyAssessment(id: string): Promise<Assessment> {
+// certify/refer also fire the member email server-side and report whether it
+// was sent (notified) and to which address (notified_to, null if not sent).
+export type ActionResult = Assessment & {
+  notified?: boolean;
+  notified_to?: string | null;
+};
+
+export function certifyAssessment(id: string): Promise<ActionResult> {
   if (USE_MOCKS) {
     const a = fx.assessmentList.find((x) => x.id === id)!;
-    return mock({ ...a, status: 'CERTIFIED', certified_at: new Date().toISOString() });
+    return mock({
+      ...a,
+      status: 'CERTIFIED',
+      certified_at: new Date().toISOString(),
+      notified: true,
+      notified_to: `${a.member.last_name.toLowerCase()}@example.army.mil`,
+    });
   }
   return http(`/api/assessments/${id}/certify`, { method: 'PATCH', body: '{}' });
 }
 
-export function referAssessment(id: string, input: ReferInput): Promise<Assessment> {
+export function referAssessment(id: string, input: ReferInput): Promise<ActionResult> {
   if (USE_MOCKS) {
     const a = fx.assessmentList.find((x) => x.id === id)!;
-    return mock({ ...a, status: 'REFERRED', ...input });
+    return mock({
+      ...a,
+      status: 'REFERRED',
+      ...input,
+      notified: true,
+      notified_to: `${a.member.last_name.toLowerCase()}@example.army.mil`,
+    });
   }
   return http(`/api/assessments/${id}/refer`, { method: 'PATCH', body: JSON.stringify(input) });
 }

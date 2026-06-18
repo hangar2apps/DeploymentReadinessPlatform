@@ -8,6 +8,7 @@ import type { CompanyReadiness, ServiceMember } from '../../types/drp';
 import { getServiceMembers } from '../../services/api';
 import { DataTable, type Column } from '../ui/DataTable';
 import { SeverityBadge } from '../ui/Badge';
+import { LoadingScreen } from '../ui/LoadingScreen';
 
 const columns: Column<ServiceMember>[] = [
   {
@@ -116,7 +117,11 @@ export function RosterDrawer({
         </div>
         <div className="min-h-0 flex-1 overflow-y-auto p-5">
           {loading ? (
-            <p className="text-sm text-muted">Loading roster…</p>
+            <LoadingScreen
+              variant="panel"
+              message="Loading roster..."
+              detail={`Pulling non-deployable personnel for ${company.short_name}.`}
+            />
           ) : (
             <DataTable
               columns={columns}

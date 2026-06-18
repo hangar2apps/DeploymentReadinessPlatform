@@ -15,6 +15,7 @@ import {
 import { usePersona } from '../context/RoleContext';
 import { useDev } from '../context/DevContext';
 import { Card } from '../components/ui/Card';
+import { LoadingScreen } from '../components/ui/LoadingScreen';
 import { StatusLanding } from '../components/assessment/StatusLanding';
 import { SectionNav, type NavSection } from '../components/assessment/SectionNav';
 import { buildSections } from '../components/assessment/sections';
@@ -25,13 +26,13 @@ import type {
 } from '../components/assessment/types';
 import { fullResponses, partialResponses } from '../lib/assessmentDev';
 
-type Status = Assessment['status'] | 'NOT_STARTED';
+type Status = Assessment['status'] | 'NOT_STARTED' | null; // null = loading
 type Phase = 'landing' | 'form' | 'submitted';
 
 export default function AssessmentPage() {
   const persona = usePersona();
   const [phase, setPhase] = useState<Phase>('landing');
-  const [status, setStatus] = useState<Status>('NOT_STARTED');
+  const [status, setStatus] = useState<Status>(null);
   const [step, setStep] = useState(0);
   const [responses, setResponses] = useState<AssessmentResponses>({});
   const [photoName, setPhotoName] = useState<string | null>(null);
@@ -42,6 +43,7 @@ export default function AssessmentPage() {
   // The real (UUID) service member id, resolved from the persona's EDIPI. The
   // persona.member_id is a fixture string, so the backend can't accept it.
   const [memberId, setMemberId] = useState<string | null>(null);
+  const [bootstrapping, setBootstrapping] = useState(true);
 
   useEffect(() => {
     let active = true;
@@ -56,8 +58,13 @@ export default function AssessmentPage() {
         if (a) {
           setStatus(a.status);
           setAssessedType(a.type);
-          // A completed pre-deployment screen means the post one is now due.
-          if (a.type === 'PRE' && a.status !== 'DRAFT') setType('POST');
+          if (a.type === 'PRE' && a.status !== 'DRAFT') {
+            // Completed pre-deployment screen -> post is now due; stay on the
+            // landing so it can be started instead of showing the submitted view.
+            setType('POST');
+          } else if (a.status !== 'DRAFT') {
+            setPhase('submitted');
+          }
           return;
         }
         const d = await loadDraft(persona.member_id);
@@ -73,6 +80,9 @@ export default function AssessmentPage() {
       })
       .catch(() => {
         if (active) setStatus('NOT_STARTED');
+      })
+      .finally(() => {
+        if (active) setBootstrapping(false);
       });
     return () => {
       active = false;
@@ -87,10 +97,7 @@ export default function AssessmentPage() {
   const set: SetResponse = (key, value) =>
     setResponses((r) => ({ ...r, [key]: value }));
 
-  const handlePhoto = (name: string) => {
-    setPhotoName(name);
-    set('immunization_record_filename', name);
-  };
+  const handlePhoto = (name: string | null) => setPhotoName(name);
 
   const sections = useMemo<SectionDef[]>(
     () =>
@@ -199,6 +206,15 @@ export default function AssessmentPage() {
     setTypeControl({ value: type, set: setType });
     return () => setTypeControl(null);
   }, [setTypeControl, type]);
+
+  if (bootstrapping) {
+    return (
+      <LoadingScreen
+        message="Loading assessment..."
+        detail="Checking your record and restoring any saved draft before you continue."
+      />
+    );
+  }
 
   let body;
 

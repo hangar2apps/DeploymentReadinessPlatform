@@ -58,6 +58,12 @@ ON CONFLICT (edipi) DO UPDATE
   SET deployable        = EXCLUDED.deployable,
       deployable_reason = EXCLUDED.deployable_reason;
 
+-- Demo emails for the soldiers added above (seed.sql already set them for the
+-- base roster; this catches the newly inserted ones).
+UPDATE service_members
+SET email = lower(first_name) || '.' || lower(last_name) || '@example.army.mil'
+WHERE email IS NULL;
+
 -- ---- POST assessments ------------------------------------------------------
 --   service_member_id resolved by EDIPI; certified_by resolved to CPT Chen.
 --   Explicit 'bbbbbbbb-…' UUIDs so the red_flags below can reference them.
