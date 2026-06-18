@@ -137,6 +137,35 @@ class TestReadinessTrendEndpoint:
         assert response.get_json() == {"error": "unit not found"}
 
 
+class TestPostDeploymentReadinessEndpoint:
+    def test_returns_post_deployment_metrics_shape(self, client):
+        row = {
+            "total_returned": 8,
+            "post_dha_complete": 3,
+            "post_dha_pending": 5,
+            "flagged_behavioral_health": 3,
+            "flagged_tbi_screening": 4,
+            "avg_phq9_delta": 3.0,
+            "avg_pcl5_delta": 17.0,
+        }
+
+        with patch("blueprints.readiness._unit_exists", return_value=True), patch(
+            "blueprints.readiness.db.query_one",
+            return_value=row,
+        ):
+            response = client.get("/api/readiness/post-deployment?unit_id=bn-1")
+
+        assert response.status_code == 200
+        assert response.get_json() == row
+
+    def test_returns_404_for_unknown_unit(self, client):
+        with patch("blueprints.readiness._unit_exists", return_value=False):
+            response = client.get("/api/readiness/post-deployment?unit_id=bad-unit")
+
+        assert response.status_code == 404
+        assert response.get_json() == {"error": "unit not found"}
+
+
 class TestRedFlagsSummaryEndpoint:
     def test_returns_array_response(self, client):
         rows = [
