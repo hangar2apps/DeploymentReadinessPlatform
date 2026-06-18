@@ -23,8 +23,10 @@ bp = Blueprint("chat", __name__, url_prefix="/api")
 _HIPAA_GUARDRAIL = "You are a readiness analyst assistant for a battalion commander. Answer using ONLY the structured data provided. Summarize by category and count. Do NOT include individual names, EDIPIs, or specific medical details. If the data does not cover the question, say so. Lead with a one-sentence answer. Use a short bulleted list (lines starting with '- ') only when listing multiple companies or categories — never bullet a single statement. You may use **bold** for labels. Do not use '#' headers or tables."
 
 # How many prior turns of the conversation to replay so follow-up questions
-# ("those soldiers", "what about Bravo") resolve. Bounds the prompt size.
+# ("those soldiers", "what about Bravo") resolve, and a per-message char cap.
+# Both bound the (client-supplied) history's contribution to the prompt.
 _MAX_HISTORY_TURNS = 6
+_MAX_HISTORY_CHARS = 2000
 
 
 @bp.post("/policy-chat")
@@ -63,19 +65,30 @@ def _commander_context(unit_id: str) -> dict[str, Any]:
         (unit_id,),
     )
 
-    # Per-company breakdown of the non-deployable soldiers by reason category, so
-    # "why is C CO not at 100%?" is answered with the actual blockers — and the
-    # counts always match the company's non-deployable roster.
+    # Per-company breakdown of non-deployable soldiers by reason category, so
+    # "why is C CO not at 100%?" is answered with the actual blockers. Each
+    # soldier is attributed to their top-level company via a recursive walk, so
+    # the reason counts roll up the company's full subtree and sum to the
+    # non_deployable figure in by_company below (which uses readiness_stats).
     company_reason_rows = db.query(
         """
-        SELECT u.short_name AS unit,
+        WITH RECURSIVE company_tree AS (
+          -- Companies = direct children of the unit; each maps to itself.
+          SELECT id AS unit_id, id AS company_id, short_name AS company
+          FROM units WHERE parent_unit_id = %s
+          UNION ALL
+          -- Any deeper unit inherits its ancestor company.
+          SELECT u.id, ct.company_id, ct.company
+          FROM units u JOIN company_tree ct ON u.parent_unit_id = ct.unit_id
+        )
+        SELECT ct.company AS unit,
                COALESCE(sm.deployable_reason, 'Unspecified') AS reason,
                COUNT(*) AS soldier_count
         FROM service_members sm
-        JOIN units u ON u.id = sm.unit_id
-        WHERE NOT sm.deployable AND u.parent_unit_id = %s
-        GROUP BY u.short_name, reason
-        ORDER BY u.short_name, soldier_count DESC
+        JOIN company_tree ct ON ct.unit_id = sm.unit_id
+        WHERE NOT sm.deployable
+        GROUP BY ct.company, reason
+        ORDER BY ct.company, soldier_count DESC
         """,
         (unit_id,),
     )
@@ -143,14 +156,20 @@ def commander_chat() -> Tuple[Response, int]:
     # Replay prior turns so follow-ups resolve ("those soldiers" -> the unit just
     # discussed). The fresh data JSON rides only on the current question to keep
     # history light and the latest numbers authoritative.
+    #
+    # NOTE: history is client-supplied, so the replayed "assistant" turns are NOT
+    # trusted server state — a tampered client could plant arbitrary assistant
+    # text. This is acceptable here only because the context the model answers
+    # from is already aggregate counts/categories (no PHI to leak). We still cap
+    # the count and per-message length to bound prompt-stuffing abuse.
     messages: list[dict[str, str]] = [{"role": "system", "content": _HIPAA_GUARDRAIL}]
     history = body.get("history") or []
     if isinstance(history, list):
         for turn in history[-_MAX_HISTORY_TURNS:]:
             if not isinstance(turn, dict):
                 continue
-            q = (turn.get("q") or "").strip()
-            a = (turn.get("a") or "").strip()
+            q = (turn.get("q") or "").strip()[:_MAX_HISTORY_CHARS]
+            a = (turn.get("a") or "").strip()[:_MAX_HISTORY_CHARS]
             if q:
                 messages.append({"role": "user", "content": q})
             if a:

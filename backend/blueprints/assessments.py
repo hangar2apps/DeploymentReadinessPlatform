@@ -168,31 +168,36 @@ def create_assessment() -> Tuple[Response, int]:
     phq9, pcl5 = rules.score(responses)
     submitting = status == "SUBMITTED"
 
-    assessment = db.execute(
-        """
-        INSERT INTO assessments
-          (service_member_id, type, status, responses, phq9_score, pcl5_score, submitted_at)
-        VALUES (%s, %s, %s, %s, %s, %s, CASE WHEN %s THEN now() ELSE NULL END)
-        RETURNING *
-        """,
-        (
-            service_member_id,
-            type_,
-            status,
-            json.dumps(responses),
-            phq9,
-            pcl5,
-            submitting,
-        ),
-    )
-    if not assessment:
+    # Insert the assessment, run the rule engine, and update deployability inside
+    # ONE transaction so a partial failure can't leave a soldier with cleared
+    # flags but a stale deployable status (a silent false-clear).
+    try:
+        with db.transaction() as cur:
+            cur.execute(
+                """
+                INSERT INTO assessments
+                  (service_member_id, type, status, responses, phq9_score, pcl5_score, submitted_at)
+                VALUES (%s, %s, %s, %s, %s, %s, CASE WHEN %s THEN now() ELSE NULL END)
+                RETURNING *
+                """,
+                (
+                    service_member_id,
+                    type_,
+                    status,
+                    json.dumps(responses),
+                    phq9,
+                    pcl5,
+                    submitting,
+                ),
+            )
+            assessment = cur.fetchone()
+            flags = (
+                _run_rule_engine(cur, assessment["id"], service_member_id, type_, responses, phq9, pcl5)
+                if submitting
+                else []
+            )
+    except Exception:
         return jsonify({"error": "failed to create assessment"}), 500
-
-    flags = []
-    if submitting:
-        flags = _run_rule_engine(
-            assessment["id"], service_member_id, responses, phq9, pcl5
-        )
 
     assessment["red_flags"] = flags
     return jsonify(assessment), 201
@@ -278,57 +283,60 @@ def refer(assessment_id: UUID) -> Tuple[Response, int]:
 
 
 def _run_rule_engine(
+    cur: Any,
     assessment_id: str,
     service_member_id: str,
+    type_: str,
     responses: dict[str, Any],
     phq9: int,
     pcl5: int,
 ) -> list[dict[str, Any]]:
     """
     Persist red flags for a submitted assessment and update deployability.
+
+    Runs on the caller's transaction cursor (`cur`) so it commits atomically with
+    the assessment insert — never on its own.
     """
 
     flags = rules.evaluate(responses, phq9, pcl5)
 
-    # Supersede the soldier's prior unresolved flags before writing this
-    # submission's. Without this, every resubmission piles up flags that are
-    # never cleared, so the red_flags table drifts out of sync with the
-    # deployable status we set below (which reflects only this latest submission).
-    db.execute(
+    # Supersede the soldier's prior unresolved flags for THIS assessment type, so
+    # resubmitting the same questionnaire doesn't pile up stale flags (which would
+    # drift out of sync with the deployable status set below). Flags from other
+    # types — e.g. a PRE the provider is still actioning — are left untouched.
+    cur.execute(
         """
         UPDATE red_flags SET resolved_at = now()
         WHERE resolved_at IS NULL
           AND assessment_id IN (
-            SELECT id FROM assessments WHERE service_member_id = %s
+            SELECT id FROM assessments
+            WHERE service_member_id = %s AND type = %s
           )
         """,
-        (service_member_id,),
-        returning=False,
+        (service_member_id, type_),
     )
 
     inserted = []
     for f in flags:
-        inserted.append(
-            db.execute(
-                """
-                INSERT INTO red_flags (assessment_id, type, severity, rule_fired, message)
-                VALUES (%s, %s, %s, %s, %s)
-                RETURNING *
-                """,
-                (
-                    assessment_id,
-                    f["type"],
-                    f["severity"],
-                    f["rule_fired"],
-                    f["message"],
-                ),
-            )
+        cur.execute(
+            """
+            INSERT INTO red_flags (assessment_id, type, severity, rule_fired, message)
+            VALUES (%s, %s, %s, %s, %s)
+            RETURNING *
+            """,
+            (
+                assessment_id,
+                f["type"],
+                f["severity"],
+                f["rule_fired"],
+                f["message"],
+            ),
         )
+        inserted.append(cur.fetchone())
 
     deployable, reason = rules.deployability(flags)
-    db.execute(
+    cur.execute(
         "UPDATE service_members SET deployable = %s, deployable_reason = %s WHERE id = %s",
         (deployable, reason, service_member_id),
-        returning=False,
     )
     return inserted
