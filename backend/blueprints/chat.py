@@ -14,7 +14,6 @@ from flask.wrappers import Response
 
 import config
 import db
-import rag
 from blueprints.units import readiness_stats
 
 bp = Blueprint("chat", __name__, url_prefix="/api")
@@ -39,6 +38,10 @@ def policy_chat() -> Tuple[Response, int]:
     question = (body.get("question") or "").strip()
     if not question:
         return jsonify({"error": "question is required"}), 400
+
+    # Lazy import so the module (and app startup / tests) loads without the
+    # optional LangChain deps that rag.py pulls in at import time.
+    import rag
 
     try:
         result = rag.ask_policy(question, max_chunks=body.get("max_chunks", 5))
