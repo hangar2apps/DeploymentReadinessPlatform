@@ -6,6 +6,19 @@
         "edipi",
         "PDHRA",
         "rollup"
-    ]
+    ],
+    "yaml.schemas": {
+      "https://raw.githubusercontent.com/defenseunicorns/uds-cli/v0.32.0/uds.schema.json": [
+        "uds-bundle.yaml"
+      ],
+      "https://raw.githubusercontent.com/defenseunicorns/uds-cli/v0.32.0/tasks.schema.json": [
+        "tasks.yaml",
+        "tasks/**/*.yaml",
+        "src/**/validate.yaml"
+      ],
+      "https://raw.githubusercontent.com/defenseunicorns/zarf/v0.77.0/zarf.schema.json": [
+        "zarf.yaml"
+      ]
+    },
 }
 

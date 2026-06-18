@@ -5,6 +5,7 @@ without requiring a live Supabase connection.
 """
 
 from datetime import date as real_date
+from decimal import Decimal
 from unittest.mock import patch
 
 import pytest
@@ -132,6 +133,79 @@ class TestReadinessTrendEndpoint:
     def test_returns_404_for_missing_unit(self, client):
         with patch("blueprints.readiness._unit_exists", return_value=False):
             response = client.get("/api/readiness/trend?unit_id=bad-unit&days=90")
+
+        assert response.status_code == 404
+        assert response.get_json() == {"error": "unit not found"}
+
+
+class TestPostDeploymentReadinessEndpoint:
+    def test_converts_decimals_and_fills_missing_keys(self, client):
+        # Mirror what psycopg actually returns: ROUND(...::numeric, 1) yields a
+        # Decimal, and a key may be absent. The route must coerce to float and
+        # fall back to defaults, so feed values that differ from the response.
+        row = {
+            "total_returned": 8,
+            "post_dha_complete": 3,
+            # post_dha_pending intentionally omitted -> exercises .get default
+            "flagged_behavioral_health": 3,
+            "flagged_tbi_screening": 4,
+            "avg_phq9_delta": Decimal("3.0"),
+            "avg_pcl5_delta": Decimal("17.0"),
+        }
+
+        with patch("blueprints.readiness._unit_exists", return_value=True), patch(
+            "blueprints.readiness.db.query_one",
+            return_value=row,
+        ):
+            response = client.get("/api/readiness/post-deployment?unit_id=bn-1")
+
+        assert response.status_code == 200
+        data = response.get_json()
+        assert data == {
+            "total_returned": 8,
+            "post_dha_complete": 3,
+            "post_dha_pending": 0,
+            "flagged_behavioral_health": 3,
+            "flagged_tbi_screening": 4,
+            "avg_phq9_delta": 3.0,
+            "avg_pcl5_delta": 17.0,
+        }
+        # JSON has no Decimal type, so a leaked Decimal would serialize the same;
+        # assert the Python types to prove float() actually ran.
+        assert isinstance(data["avg_phq9_delta"], float)
+        assert isinstance(data["avg_pcl5_delta"], float)
+
+    def test_defaults_when_no_unit_arg_and_empty_metrics(self, client):
+        # No unit_id -> _default_unit_id() runs; empty metrics row -> the `or {}`
+        # path and every `.get(..., default) or default` fallback fire.
+        def query_one_side_effect(sql, params=None):
+            if "parent_unit_id IS NULL" in sql:
+                return {"id": "bn-default"}
+            if "SELECT id FROM units WHERE id = %s" in sql:
+                return {"id": params[0]}
+            if "latest_post" in sql:
+                return None
+            raise AssertionError(f"Unexpected query_one SQL: {sql}")
+
+        with patch(
+            "blueprints.readiness.db.query_one", side_effect=query_one_side_effect
+        ):
+            response = client.get("/api/readiness/post-deployment")
+
+        assert response.status_code == 200
+        assert response.get_json() == {
+            "total_returned": 0,
+            "post_dha_complete": 0,
+            "post_dha_pending": 0,
+            "flagged_behavioral_health": 0,
+            "flagged_tbi_screening": 0,
+            "avg_phq9_delta": 0.0,
+            "avg_pcl5_delta": 0.0,
+        }
+
+    def test_returns_404_for_unknown_unit(self, client):
+        with patch("blueprints.readiness._unit_exists", return_value=False):
+            response = client.get("/api/readiness/post-deployment?unit_id=bad-unit")
 
         assert response.status_code == 404
         assert response.get_json() == {"error": "unit not found"}

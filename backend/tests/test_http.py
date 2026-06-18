@@ -209,25 +209,45 @@ class TestCreateAssessmentRuleEngine:
 
     @pytest.fixture(autouse=True)
     def mock_db(self):
-        def execute_side_effect(sql, params=None, returning=True):
-            # Red-flag INSERT: params order is (assessment_id, type, severity, rule_fired, message).
-            # Return a flag-shaped row so the route surfaces the real flag type.
-            if "red_flags" in sql and params and len(params) >= 3:
-                return {
-                    "id": "rf-test",
-                    "assessment_id": params[0],
-                    "type": params[1],
-                    "severity": params[2],
-                    "rule_fired": params[3] if len(params) > 3 else "",
-                    "message": params[4] if len(params) > 4 else "",
-                    "resolved_at": None,
-                }
-            # Assessment INSERT or service_members UPDATE: return fresh assessment dict.
-            return dict(_FAKE_ASSESSMENT)
+        # create_assessment now runs inside db.transaction(); fake the cursor so
+        # fetchone() returns shaped rows based on the last statement executed.
+        import contextlib
 
-        with patch("db.execute", side_effect=execute_side_effect) as mock_exec, \
+        class FakeCursor:
+            def __init__(self):
+                self._sql = ""
+                self._params = None
+
+            def execute(self, sql, params=None):
+                self._sql = sql
+                self._params = params
+
+            def fetchone(self):
+                sql, params = self._sql, self._params
+                # Red-flag INSERT: params (assessment_id, type, severity, rule_fired, message).
+                if "INSERT INTO red_flags" in sql and params and len(params) >= 3:
+                    return {
+                        "id": "rf-test",
+                        "assessment_id": params[0],
+                        "type": params[1],
+                        "severity": params[2],
+                        "rule_fired": params[3] if len(params) > 3 else "",
+                        "message": params[4] if len(params) > 4 else "",
+                        "resolved_at": None,
+                    }
+                # Assessment INSERT.
+                return dict(_FAKE_ASSESSMENT)
+
+            def fetchall(self):
+                return []
+
+        @contextlib.contextmanager
+        def fake_transaction():
+            yield FakeCursor()
+
+        with patch("db.transaction", fake_transaction), \
              patch("db.query", return_value=[]):
-            yield mock_exec
+            yield
 
     def test_dental_class_3_returns_high_flag(self, client, mock_db):
         r = client.post("/api/assessments", json={

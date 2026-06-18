@@ -33,6 +33,7 @@ def create_app() -> Flask:
     from blueprints.readiness import bp as readiness_bp
     from blueprints.chat import bp as chat_bp
     from blueprints.documents import bp as documents_bp
+    from blueprints.notifications import bp as notifications_bp
     from blueprints.uploads import bp as uploads_bp
 
     app.register_blueprint(assessments_bp)
@@ -41,6 +42,12 @@ def create_app() -> Flask:
     app.register_blueprint(readiness_bp)
     app.register_blueprint(chat_bp)
     app.register_blueprint(documents_bp)
+    app.register_blueprint(notifications_bp)
+
+    if os.getenv("SCHEDULER_ENABLED", "").lower() == "true":
+        import scheduler as _scheduler
+        _scheduler.start()
+
     app.register_blueprint(uploads_bp)
 
     @app.get("/api/health")

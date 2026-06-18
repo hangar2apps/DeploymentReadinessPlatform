@@ -267,6 +267,11 @@ export function referAssessment(id: string, input: ReferInput): Promise<Assessme
   return http(`/api/assessments/${id}/refer`, { method: 'PATCH', body: JSON.stringify(input) });
 }
 
+export function notifyReferral(id: string): Promise<{ sent: boolean; to: string }> {
+  if (USE_MOCKS) return mock({ sent: true, to: 'test.member@army.mil' });
+  return http(`/api/assessments/${id}/notify-referral`, { method: 'POST', body: '{}' });
+}
+
 // ---- Readiness --------------------------------------------------------------
 
 export function getReadiness(unitId?: string): Promise<ReadinessRollup> {
@@ -286,10 +291,18 @@ export function getRedFlagSummary(unitId?: string): Promise<RedFlagSummaryItem[]
 
 // ---- AI chat ----------------------------------------------------------------
 
-// Commander data chat (SQL -> LLM, HIPAA-constrained). Non-streaming.
-export function commanderChat(question: string, unitId?: string): Promise<CommanderChatResponse> {
+// Commander data chat (SQL -> LLM, HIPAA-constrained). Non-streaming. Prior
+// turns are sent as history so follow-up questions resolve ("those soldiers").
+export function commanderChat(
+  question: string,
+  unitId?: string,
+  history: { q: string; a: string }[] = [],
+): Promise<CommanderChatResponse> {
   if (MOCK_AI) return mock(fx.mockCommanderChat(question), 600);
-  return http('/api/commander/chat', { method: 'POST', body: JSON.stringify({ question, unit_id: unitId }) });
+  return http('/api/commander/chat', {
+    method: 'POST',
+    body: JSON.stringify({ question, unit_id: unitId, history }),
+  });
 }
 
 // Provider policy chat (RAG over policy docs). The real endpoint streams tokens
