@@ -78,16 +78,11 @@ export default function AssessmentPage() {
   const set: SetResponse = (key, value) =>
     setResponses((r) => ({ ...r, [key]: value }));
 
-  const handlePhoto = (name: string) => {
-    setPhotoName(name);
-    set('immunization_record_filename', name);
-  };
+  const handlePhoto = (name: string | null) => setPhotoName(name);
 
   const sections = useMemo<SectionDef[]>(
     () =>
       buildSections({ responses, set, persona, photoName, onPhoto: handlePhoto }),
-    // `set`/`handlePhoto` are stable updaters; only data deps matter here.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
     [responses, photoName, persona],
   );
 

@@ -20,7 +20,7 @@ export function ImmunizationStep({
   set: SetResponse;
   memberId: string;
   photoName: string | null;
-  onPhoto: (name: string) => void;
+  onPhoto: (name: string | null) => void;
 }) {
   const [uploading, setUploading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -58,7 +58,15 @@ export function ImmunizationStep({
       <Field label="Are your immunizations current?">
         <YesNo
           value={r.immunizations_current as boolean | undefined}
-          onChange={(v) => set('immunizations_current', v)}
+          onChange={(v) => {
+            set('immunizations_current', v);
+            // No record needed when current — drop any prior upload reference.
+            if (v) {
+              set('immunization_record_path', undefined);
+              set('immunization_record_filename', undefined);
+              onPhoto(null);
+            }
+          }}
         />
       </Field>
       {r.immunizations_current === false && (

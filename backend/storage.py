@@ -35,7 +35,7 @@ def upload_object(path: str, data: bytes, content_type: str) -> str:
         },
     )
     try:
-        with urllib.request.urlopen(req, timeout=30):
+        with urllib.request.urlopen(req, timeout=120):
             pass
     except urllib.error.HTTPError as e:
         body = e.read().decode("utf-8", "ignore")[:200]

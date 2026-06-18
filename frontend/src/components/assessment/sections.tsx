@@ -31,7 +31,7 @@ export interface SectionsContext {
   set: SetResponse;
   persona: Persona;
   photoName: string | null;
-  onPhoto: (name: string) => void;
+  onPhoto: (name: string | null) => void;
 }
 
 function scaleScreens(

@@ -46,6 +46,9 @@ def _sniff(data: bytes) -> Optional[Tuple[str, str]]:
 
 @bp.post("/<record_type>")
 def upload(record_type: str) -> Tuple[Response, int]:
+    # Cap body size for this route only (a global MAX_CONTENT_LENGTH would also
+    # throttle policy-doc ingest). Enforced when request.files is parsed below.
+    request.max_content_length = config.MAX_UPLOAD_BYTES
     if record_type not in _RECORD_TYPES:
         return jsonify({"error": f"unknown record type: {record_type}"}), 404
     if "file" not in request.files:
