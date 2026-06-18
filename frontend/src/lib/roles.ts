@@ -10,7 +10,8 @@ export interface Persona {
   blurb: string; // one-line surface description (login card)
   name: string; // display name
   rank: string;
-  member_id: string; // service_members.id (seed)
+  edipi: string; // stable natural key — resolves to the real service_members.id
+  member_id: string; // fixture service_members.id (mock mode + local draft key)
   unit_id: string; // unit the surface scopes to
   unit_label: string;
   route: string; // landing route for this role
@@ -23,6 +24,7 @@ export const PERSONAS: Record<Role, Persona> = {
     blurb: 'Complete your deployment health assessment',
     name: 'Rodriguez, Luis M.',
     rank: 'SPC',
+    edipi: '2000000001',
     member_id: 'sm-rodriguez',
     unit_id: 'unit-a',
     unit_label: 'A CO',
@@ -34,6 +36,7 @@ export const PERSONAS: Record<Role, Persona> = {
     blurb: 'Review red flags, certify and refer assessments',
     name: 'Chen, Michael A.',
     rank: 'CPT',
+    edipi: '1000000002',
     member_id: 'sm-chen',
     unit_id: 'unit-bn',
     unit_label: '1-327 IN',
@@ -45,6 +48,7 @@ export const PERSONAS: Record<Role, Persona> = {
     blurb: 'Battalion readiness dashboard and CUB brief',
     name: 'Harris, Robert J.',
     rank: 'LTC',
+    edipi: '1000000001',
     member_id: 'sm-harris',
     // The commander scopes to the battalion = top of the hierarchy, which is the
     // backend's default when unit_id is omitted. Empty so the API client drops

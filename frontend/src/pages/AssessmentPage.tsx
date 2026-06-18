@@ -3,6 +3,7 @@ import type { Assessment, AssessmentResponses } from '../types/drp';
 import {
   createAssessment,
   getMyAssessment,
+  getServiceMemberByEdipi,
   loadDraft,
   saveDraft,
   clearDraft,
@@ -32,10 +33,18 @@ export default function AssessmentPage() {
   const [photoName, setPhotoName] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  // The real (UUID) service member id, resolved from the persona's EDIPI. The
+  // persona.member_id is a fixture string, so the backend can't accept it.
+  const [memberId, setMemberId] = useState<string | null>(null);
 
   useEffect(() => {
     let active = true;
-    getMyAssessment(persona.member_id)
+    getServiceMemberByEdipi(persona.edipi)
+      .then((m) => {
+        const id = m?.id ?? persona.member_id;
+        if (active) setMemberId(id);
+        return getMyAssessment(id);
+      })
       .then(async (a) => {
         if (!active) return;
         if (a) {
@@ -59,7 +68,7 @@ export default function AssessmentPage() {
     return () => {
       active = false;
     };
-  }, [persona.member_id]);
+  }, [persona.edipi, persona.member_id]);
 
   useEffect(() => {
     if (phase !== 'form') return;
@@ -116,11 +125,15 @@ export default function AssessmentPage() {
   );
 
   async function handleSubmit() {
+    if (!memberId) {
+      setError('Still loading your record — try again in a moment.');
+      return;
+    }
     setSubmitting(true);
     setError(null);
     try {
       const created = await createAssessment({
-        service_member_id: persona.member_id,
+        service_member_id: memberId,
         type: 'PRE',
         responses,
       });

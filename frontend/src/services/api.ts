@@ -87,6 +87,18 @@ export function getServiceMember(id: string): Promise<ServiceMember> {
   return http(`/api/service-members/${id}`);
 }
 
+// Resolve the real (UUID) service member from the stable EDIPI natural key.
+// Personas carry a fixture id that isn't a DB UUID, so anything that writes
+// against the backend (assessment submit, my-assessment lookup) must resolve the
+// real row by EDIPI first. In mock mode the fixture id is already correct.
+export async function getServiceMemberByEdipi(
+  edipi: string,
+): Promise<ServiceMember | null> {
+  if (USE_MOCKS) return mock(fx.serviceMembers.find((m) => m.edipi === edipi) ?? null);
+  const all = await http<ServiceMember[]>('/api/service-members');
+  return all.find((m) => m.edipi === edipi) ?? null;
+}
+
 // ---- Assessments ------------------------------------------------------------
 
 export function getAssessments(
