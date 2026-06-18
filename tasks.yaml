@@ -19,6 +19,7 @@ tasks:
       # TODO change this to use an OCI registry when the image is pushed there
       - cmd: docker buildx build -f "backend/Dockerfile" -t "${IMAGE}" --output "type=oci,dest=images/drp-0.1.0.oci.tar" .
       - cmd: uds zarf package create . --no-color --confirm
+      - cmd: uds create bundle/
 
   - name: cluster
     description: "Bring up a local k3d UDS Core slim-dev cluster"
@@ -28,4 +29,6 @@ tasks:
   - name: deploy
     description: "Deploy the built Zarf package to the local cluster"
     actions:
-      - cmd: uds zarf package deploy zarf-package-deployment-readiness-platform-*.tar.zst --no-color --confirm
+      # TODO pin the version to prevent conflicts
+      - cmd: uds deploy uds-bundle-deployment-readiness-platform-*.tar.zst --no-color --confirm
+        dir: bundle
