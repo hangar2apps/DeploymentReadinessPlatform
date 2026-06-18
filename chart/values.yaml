@@ -1,0 +1,49 @@
+image:
+  repository: ghcr.io/defenseunicorns/deployment-readiness-platform
+  tag: "0.1.0"
+  pullPolicy: IfNotPresent
+
+replicaCount: 2
+
+config:
+  # Port gunicorn binds; must match the image EXPOSE. Fixed here (not a deploy-time var) — the Service fronts it via a named targetPort, so there's no reason to retune it per environment.
+  backendPort: "3000"
+  openaiModel: "gpt-4o-mini"
+  backendDebug: "false"
+
+secrets:
+  supabaseConnectionString: ""
+  openaiApiKey: ""
+
+service:
+  type: ClusterIP
+  port: 3000
+
+# Probes hit the API health endpoint (app.py: GET /api/health → 200).
+probes:
+  path: /api/health
+
+resources:
+  requests:
+    cpu: 100m
+    memory: 256Mi
+  limits:
+    cpu: "1"
+    memory: 512Mi
+
+# Pod/container hardening. runAsUser is numeric because the image's USER is the non-numeric `app`; without a number, kubelet's runAsNonRoot check refuses to start the pod. See docs/justifications.md.
+podSecurityContext:
+  runAsNonRoot: true
+  runAsUser: 1000
+  runAsGroup: 1000
+  fsGroup: 1000
+  seccompProfile:
+    type: RuntimeDefault
+
+securityContext:
+  allowPrivilegeEscalation: false
+  # The app does not write to its filesystem at runtime, but gunicorn and some libraries use /tmp; an emptyDir is mounted there (see deployment.yaml) so this can stay true. Flip to false + drop the mount only if a library needs more.
+  readOnlyRootFilesystem: true
+  capabilities:
+    drop:
+      - ALL
