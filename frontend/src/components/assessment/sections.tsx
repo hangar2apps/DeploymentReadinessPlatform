@@ -104,7 +104,7 @@ export function buildSections({
     },
     {
       key: 'immunization',
-      title: 'Immun.',
+      title: 'Immunization',
       screens: [
         {
           key: 'immunization',
