@@ -137,6 +137,7 @@ export function AssessmentDetailDrawer({
   const status: AssessmentStatus = a?.status ?? selected.status;
   const flags = a?.flags ?? selected.flags;
   const responses = (a?.responses ?? selected.responses) as Record<string, unknown>;
+  const hasUnresolvedHighFlags = flags.some((f) => f.severity === 'HIGH' && f.resolved_at === null);
 
   return (
     <div className="fixed inset-0 z-50 flex justify-end">
@@ -266,13 +267,19 @@ export function AssessmentDetailDrawer({
             {error && (
               <p className="mb-2 text-xs text-danger">{error}</p>
             )}
+            {hasUnresolvedHighFlags && !showRefer && (
+              <p className="mb-2 text-xs text-danger">
+                Unresolved HIGH red flags are present. Refer this member before certifying.
+              </p>
+            )}
             {!showRefer ? (
               <div className="flex gap-2">
                 <button
                   type="button"
-                  disabled={busy}
+                  disabled={busy || hasUnresolvedHighFlags}
+                  title={hasUnresolvedHighFlags ? 'Cannot certify while HIGH red flags are unresolved' : undefined}
                   onClick={certify}
-                  className="flex-1 rounded-md bg-ok px-3 py-2 text-sm font-medium text-bg disabled:opacity-40"
+                  className="flex-1 rounded-md bg-ok px-3 py-2 text-sm font-medium text-bg disabled:cursor-not-allowed disabled:opacity-40"
                 >
                   Certify — Deployable
                 </button>
