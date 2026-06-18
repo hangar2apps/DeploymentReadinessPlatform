@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import type { AssessmentResponses } from '../../../types/drp';
 import type { SetResponse } from '../types';
 import { Field } from '../fields/Field';
@@ -24,6 +24,8 @@ export function ImmunizationStep({
 }) {
   const [uploading, setUploading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const mounted = useRef(true);
+  useEffect(() => () => void (mounted.current = false), []);
 
   const onFile = (file: File) => {
     setError(null);
@@ -34,12 +36,20 @@ export function ImmunizationStep({
     setUploading(true);
     uploadImmunizationRecord(memberId, file)
       .then(({ path }) => {
+        if (!mounted.current) return;
         set('immunization_record_path', path);
         set('immunization_record_filename', file.name);
         onPhoto(file.name);
       })
-      .catch(() => setError('Upload failed. Check your connection and try again.'))
-      .finally(() => setUploading(false));
+      .catch((err) => {
+        console.error('immunization upload failed', err);
+        if (mounted.current) {
+          setError('Upload failed. Check your connection and try again.');
+        }
+      })
+      .finally(() => {
+        if (mounted.current) setUploading(false);
+      });
   };
 
   return (

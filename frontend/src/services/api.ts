@@ -168,6 +168,7 @@ export function uploadRecord(
   return fetch(`${API_URL}/api/uploads/${recordType}`, {
     method: 'POST',
     body: form,
+    signal: AbortSignal.timeout(120_000),
   }).then(async (res) => {
     if (!res.ok) {
       const msg = await res.text().catch(() => '');

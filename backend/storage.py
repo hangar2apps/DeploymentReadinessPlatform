@@ -7,6 +7,7 @@ consistent with the frontend -> gateway -> storage flow). Stdlib only.
 
 import urllib.error
 import urllib.request
+from urllib.parse import quote
 
 import config
 
@@ -21,7 +22,8 @@ def upload_object(path: str, data: bytes, content_type: str) -> str:
     if not config.SUPABASE_URL or not config.SUPABASE_SERVICE_ROLE_KEY:
         raise StorageError("storage not configured (SUPABASE_URL / SERVICE_ROLE_KEY missing)")
 
-    url = f"{config.SUPABASE_URL}/storage/v1/object/{config.SUPABASE_BUCKET}/{path}"
+    obj = quote(f"{config.SUPABASE_BUCKET}/{path}", safe="/")
+    url = f"{config.SUPABASE_URL}/storage/v1/object/{obj}"
     req = urllib.request.Request(
         url,
         data=data,
@@ -33,9 +35,8 @@ def upload_object(path: str, data: bytes, content_type: str) -> str:
         },
     )
     try:
-        with urllib.request.urlopen(req, timeout=30) as resp:
-            if resp.status not in (200, 201):
-                raise StorageError(f"upload failed: HTTP {resp.status}")
+        with urllib.request.urlopen(req, timeout=30):
+            pass
     except urllib.error.HTTPError as e:
         body = e.read().decode("utf-8", "ignore")[:200]
         raise StorageError(f"upload failed: HTTP {e.code} {body}") from e

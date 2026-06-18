@@ -23,6 +23,8 @@ import config
 def create_app() -> Flask:
     # static_folder=None: we serve the SPA through the explicit catch-all route below rather than Flask's built-in static route, to avoid a clash between that route's `/<path:filename>` rule and our own catch-all.
     app = Flask(__name__, static_folder=None)
+    # Reject oversized request bodies before they're read into memory.
+    app.config["MAX_CONTENT_LENGTH"] = config.MAX_UPLOAD_BYTES
     # CORS is a no-op once the SPA is same-origin (served from this app), but it stays for local dev where the Vite dev server runs on a different port.
     CORS(app, origins=[config.FRONTEND_ORIGIN])
 
