@@ -2,6 +2,7 @@
 // One question per screen is a deliberate privacy/focus choice for the mental-
 // health screens (frontend-derrick.md §1). Large tap targets — mobile-first.
 
+import { useEffect } from 'react';
 import type { ScaleOption } from '../../lib/questionnaire';
 
 export function ScaleQuestion({
@@ -17,6 +18,34 @@ export function ScaleQuestion({
   value: number | undefined;
   onChange: (value: number) => void;
 }) {
+  useEffect(() => {
+    function handleKeyDown(event: KeyboardEvent) {
+      if (event.altKey || event.ctrlKey || event.metaKey || event.shiftKey) return;
+
+      const target = event.target;
+      if (
+        target instanceof HTMLInputElement ||
+        target instanceof HTMLTextAreaElement ||
+        target instanceof HTMLSelectElement ||
+        (target instanceof HTMLElement && target.isContentEditable)
+      ) {
+        return;
+      }
+
+      let shortcut: number | null = null;
+      if (/^[1-9]$/.test(event.key)) shortcut = Number(event.key);
+      if (/^Numpad[1-9]$/.test(event.code)) shortcut = Number(event.code.slice(-1));
+
+      if (!shortcut || shortcut > options.length) return;
+
+      event.preventDefault();
+      onChange(options[shortcut - 1].value);
+    }
+
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [onChange, options]);
+
   return (
     <div className="space-y-5">
       <div>
@@ -24,11 +53,16 @@ export function ScaleQuestion({
           {prompt}
         </p>
         <h2 className="mt-2 text-lg font-medium leading-snug">{question}</h2>
+        <p className="mt-2 text-xs text-muted">
+          Use number keys{' '}
+          <span className="font-mono text-ink">1-{options.length}</span> to answer.
+        </p>
       </div>
 
       <div className="space-y-2" role="radiogroup" aria-label={question}>
-        {options.map((opt) => {
+        {options.map((opt, index) => {
           const selected = value === opt.value;
+          const shortcut = index + 1;
           return (
             <button
               key={opt.value}
@@ -48,7 +82,7 @@ export function ScaleQuestion({
                   selected ? 'text-accent' : 'text-muted'
                 }`}
               >
-                {opt.value}
+                {shortcut}
               </span>
             </button>
           );
