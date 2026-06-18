@@ -41,6 +41,9 @@ export interface ServiceMember {
   unit_id: string;
   deployable: boolean;
   deployable_reason: DeployableReason;
+  // Joined from units by the service-member endpoints (not always present).
+  unit_name?: string;
+  unit_short_name?: string;
 }
 
 // Flexible questionnaire payload. Field names match the red-flag rule engine

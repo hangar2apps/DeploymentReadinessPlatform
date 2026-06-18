@@ -3,7 +3,9 @@ import type {
   Assessment,
   AssessmentResponses,
   AssessmentType,
+  ServiceMember,
 } from '../types/drp';
+import type { Persona } from '../lib/roles';
 import {
   createAssessment,
   getMyAssessment,
@@ -39,6 +41,10 @@ export default function AssessmentPage() {
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [type, setType] = useState<AssessmentType>('PRE');
+  // The real service member record (resolved from the persona's EDIPI), so the
+  // screen shows the actual logged-in soldier's rank/name/unit — not the mock
+  // persona's hardcoded values.
+  const [member, setMember] = useState<ServiceMember | null>(null);
   const [assessedType, setAssessedType] = useState<AssessmentType | null>(null);
   // The real (UUID) service member id, resolved from the persona's EDIPI. The
   // persona.member_id is a fixture string, so the backend can't accept it.
@@ -50,7 +56,10 @@ export default function AssessmentPage() {
     getServiceMemberByEdipi(persona.edipi)
       .then((m) => {
         const id = m?.id ?? persona.member_id;
-        if (active) setMemberId(id);
+        if (active) {
+          setMemberId(id);
+          setMember(m);
+        }
         return getMyAssessment(id);
       })
       .then(async (a) => {
@@ -62,9 +71,12 @@ export default function AssessmentPage() {
             // Resume an in-progress assessment under its own type.
             setType(a.type);
           } else if (a.type === 'PRE') {
-            // Completed pre-deployment screen -> post is now due; stay on the
-            // landing so it can be started instead of showing the submitted view.
+            // Completed pre-deployment screen -> the post-deployment assessment
+            // is now due. Present it as a fresh start (reset status, since the
+            // status above reflected the already-finished PRE) so the landing
+            // shows START instead of the PRE's "certified" view.
             setType('POST');
+            setStatus('NOT_STARTED');
           } else {
             setPhase('submitted');
           }
@@ -103,17 +115,30 @@ export default function AssessmentPage() {
 
   const handlePhoto = (name: string | null) => setPhotoName(name);
 
+  // Persona overlaid with the real service member's identity, so the displayed
+  // rank/name/unit reflect whoever is actually logged in.
+  const effectivePersona = useMemo<Persona>(() => {
+    if (!member) return persona;
+    const mi = member.middle_initial ? ` ${member.middle_initial}.` : '';
+    return {
+      ...persona,
+      rank: member.rank,
+      name: `${member.last_name}, ${member.first_name}${mi}`,
+      unit_label: member.unit_short_name ?? persona.unit_label,
+    };
+  }, [member, persona]);
+
   const sections = useMemo<SectionDef[]>(
     () =>
       buildSections({
         responses,
         set,
-        persona,
+        persona: effectivePersona,
         photoName,
         onPhoto: handlePhoto,
         type,
       }),
-    [responses, photoName, persona, type],
+    [responses, photoName, effectivePersona, type],
   );
 
   const flat = useMemo(() => {
@@ -228,7 +253,7 @@ export default function AssessmentPage() {
     body = (
       <div className="mx-auto max-w-3xl space-y-4">
         <StatusLanding
-          memberName={`${persona.rank} ${persona.name}`}
+          memberName={`${effectivePersona.rank} ${effectivePersona.name}`}
           status={landingStatus}
           type={type}
           onStart={() => {
@@ -246,7 +271,7 @@ export default function AssessmentPage() {
     body = (
       <div className="mx-auto max-w-3xl">
         <StatusLanding
-          memberName={`${persona.rank} ${persona.name}`}
+          memberName={`${effectivePersona.rank} ${effectivePersona.name}`}
           status={status}
           type={type}
           onStart={() => {}}

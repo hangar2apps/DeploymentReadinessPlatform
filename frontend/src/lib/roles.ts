@@ -1,10 +1,13 @@
-// Mock auth: three seeded personas, one per role. No real auth (DRP_SPEC §5
-// WON'T). The active role is persisted to localStorage by RoleContext and
-// drives which surface + which seeded person/unit the app operates as.
+// Mock auth: seeded login personas. No real auth (DRP_SPEC §5 WON'T). The active
+// persona id is persisted to localStorage by RoleContext and drives which surface
+// + which seeded person/unit the app operates as. A role can have more than one
+// persona (e.g. two service members in different assessment states), so PERSONAS
+// is keyed by a unique persona id rather than by role.
 
 export type Role = 'service_member' | 'provider' | 'commander';
 
 export interface Persona {
+  id: string; // unique login id (localStorage key + login-card key)
   role: Role;
   label: string; // role label
   blurb: string; // one-line surface description (login card)
@@ -17,11 +20,12 @@ export interface Persona {
   route: string; // landing route for this role
 }
 
-export const PERSONAS: Record<Role, Persona> = {
-  service_member: {
+export const PERSONAS: Record<string, Persona> = {
+  rodriguez: {
+    id: 'rodriguez',
     role: 'service_member',
     label: 'Service Member',
-    blurb: 'Complete your deployment health assessment',
+    blurb: 'New pre-deployment health assessment',
     name: 'Rodriguez, Luis M.',
     rank: 'SPC',
     edipi: '2000000001',
@@ -30,7 +34,21 @@ export const PERSONAS: Record<Role, Persona> = {
     unit_label: 'A CO',
     route: '/assessment',
   },
-  provider: {
+  dalton: {
+    id: 'dalton',
+    role: 'service_member',
+    label: 'Service Member',
+    blurb: 'Returning — post-deployment health assessment',
+    name: 'Dalton, Wayne E.',
+    rank: 'SGM',
+    edipi: '1000000004',
+    member_id: 'sm-dalton',
+    unit_id: 'unit-hhc',
+    unit_label: 'HHC',
+    route: '/assessment',
+  },
+  chen: {
+    id: 'chen',
     role: 'provider',
     label: 'Provider',
     blurb: 'Review red flags, certify and refer assessments',
@@ -42,7 +60,8 @@ export const PERSONAS: Record<Role, Persona> = {
     unit_label: '1-327 IN',
     route: '/provider',
   },
-  commander: {
+  harris: {
+    id: 'harris',
     role: 'commander',
     label: 'Commander',
     blurb: 'Battalion readiness dashboard and CUB brief',
@@ -59,4 +78,5 @@ export const PERSONAS: Record<Role, Persona> = {
   },
 };
 
-export const ROLE_ORDER: Role[] = ['service_member', 'provider', 'commander'];
+// Display order of the login cards / dev role-switcher.
+export const LOGIN_ORDER: string[] = ['rodriguez', 'dalton', 'chen', 'harris'];

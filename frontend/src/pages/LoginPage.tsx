@@ -4,7 +4,7 @@
 
 import { Navigate, useNavigate } from 'react-router-dom';
 import { useRole } from '../context/RoleContext';
-import { PERSONAS, ROLE_ORDER } from '../lib/roles';
+import { PERSONAS, LOGIN_ORDER } from '../lib/roles';
 import { CuiBar } from '../components/layout/CuiBar';
 
 export default function LoginPage() {
@@ -31,15 +31,15 @@ export default function LoginPage() {
             </p>
           </div>
 
-          <div className="grid gap-4 sm:grid-cols-3">
-            {ROLE_ORDER.map((role) => {
-              const p = PERSONAS[role];
+          <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+            {LOGIN_ORDER.map((id) => {
+              const p = PERSONAS[id];
               return (
                 <button
-                  key={role}
+                  key={id}
                   type="button"
                   onClick={() => {
-                    login(role);
+                    login(id);
                     navigate(p.route);
                   }}
                   className="group flex flex-col rounded-lg border border-border bg-surface p-5 text-left transition-colors hover:border-accent"

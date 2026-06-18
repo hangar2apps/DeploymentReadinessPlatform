@@ -7,40 +7,41 @@ import type { ReactNode } from 'react';
 import { PERSONAS, type Persona, type Role } from '../lib/roles';
 import { clearAllDrafts } from '../services/api';
 
-const STORAGE_KEY = 'drp.role';
+const STORAGE_KEY = 'drp.persona';
 
 interface RoleContextValue {
   role: Role | null;
   persona: Persona | null;
-  login: (role: Role) => void;
+  login: (personaId: string) => void;
   logout: () => void;
 }
 
 const RoleContext = createContext<RoleContextValue | null>(null);
 
-function readInitialRole(): Role | null {
-  const stored = localStorage.getItem(STORAGE_KEY) as Role | null;
+function readInitialPersonaId(): string | null {
+  const stored = localStorage.getItem(STORAGE_KEY);
   return stored && stored in PERSONAS ? stored : null;
 }
 
 export function RoleProvider({ children }: { children: ReactNode }) {
-  const [role, setRole] = useState<Role | null>(readInitialRole);
+  const [personaId, setPersonaId] = useState<string | null>(readInitialPersonaId);
+  const persona = personaId ? PERSONAS[personaId] : null;
 
   const value = useMemo<RoleContextValue>(
     () => ({
-      role,
-      persona: role ? PERSONAS[role] : null,
-      login: (r: Role) => {
-        localStorage.setItem(STORAGE_KEY, r);
-        setRole(r);
+      role: persona?.role ?? null,
+      persona,
+      login: (id: string) => {
+        localStorage.setItem(STORAGE_KEY, id);
+        setPersonaId(id);
       },
       logout: () => {
         clearAllDrafts();
         localStorage.removeItem(STORAGE_KEY);
-        setRole(null);
+        setPersonaId(null);
       },
     }),
-    [role],
+    [persona],
   );
 
   return <RoleContext.Provider value={value}>{children}</RoleContext.Provider>;

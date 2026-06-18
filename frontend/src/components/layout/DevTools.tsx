@@ -2,14 +2,14 @@ import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useRole } from '../../context/RoleContext';
 import { useDev } from '../../context/DevContext';
-import { PERSONAS, ROLE_ORDER } from '../../lib/roles';
+import { PERSONAS, LOGIN_ORDER } from '../../lib/roles';
 
 const seedBtn =
   'flex-1 rounded border border-border bg-surface px-2 py-1 text-xs text-ink hover:border-accent hover:text-accent';
 
 export function DevTools() {
   const [open, setOpen] = useState(false);
-  const { role, login } = useRole();
+  const { persona, login } = useRole();
   const navigate = useNavigate();
   const { seed, typeControl } = useDev();
 
@@ -43,23 +43,23 @@ export function DevTools() {
 
       <div className="space-y-1">
         <div className="font-mono text-[10px] uppercase tracking-wider text-muted">
-          Role
+          Sign in as
         </div>
-        {ROLE_ORDER.map((r) => (
+        {LOGIN_ORDER.map((id) => (
           <button
-            key={r}
+            key={id}
             type="button"
             onClick={() => {
-              login(r);
-              navigate(PERSONAS[r].route);
+              login(id);
+              navigate(PERSONAS[id].route);
             }}
             className={`block w-full rounded border px-2 py-1 text-left text-[11px] transition-colors ${
-              role === r
+              persona?.id === id
                 ? 'border-accent text-accent'
                 : 'border-border text-ink hover:border-accent hover:text-accent'
             }`}
           >
-            {PERSONAS[r].label}
+            {PERSONAS[id].rank} {PERSONAS[id].name}
           </button>
         ))}
       </div>

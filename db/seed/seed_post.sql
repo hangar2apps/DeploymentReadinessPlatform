@@ -77,10 +77,9 @@ SELECT v.id::uuid, sm.id, v.type, v.status, v.responses::jsonb,
        c.id, v.referral_type, v.referral_notes
 FROM (
   VALUES
-  -- 1. SPC Rodriguez (A CO) — CERTIFIED, clean return (happy path).
-  ('bbbbbbbb-bbbb-bbbb-bbbb-000000000001','2000000001','POST','CERTIFIED',
-    '{"blast_exposure":false,"witnessed_death":false,"new_medication":false,"phq9_q9":0,"environmental_exposure":"none","last_pha_date":"2026-05-20"}',2,6,
-    '2026-06-10 08:00:00+00','2026-06-11 10:30:00+00','1000000002',NULL,NULL),
+  -- NOTE: Rodriguez has NO seeded assessment on purpose — he's the service-member
+  -- demo login and is reset to a fresh NOT_STARTED state at the end of this file,
+  -- so the questionnaire flow can be demoed end-to-end.
 
   -- 2. SPC Bailey (B CO) — SUBMITTED, significant deterioration (key demo case).
   ('bbbbbbbb-bbbb-bbbb-bbbb-000000000002','3000000001','POST','SUBMITTED',
@@ -144,6 +143,25 @@ FROM (
   -- Harrington: PHQ-9 6 -> LOW (mild). No deployability impact.
   ('bbbbbbbb-bbbb-bbbb-bbbb-000000000006','PHQ9_MILD','LOW','phq9_score >= 5 AND < 10','PHQ-9 score 6 indicates mild depression')
 ) AS v(assessment_id, type, severity, rule_fired, message);
+
+-- ---- Fresh slate: leave the service-member demo login(s) with NO assessment --
+-- So the questionnaire can be demoed end-to-end from NOT_STARTED (the soldier
+-- fills it out live, then the provider reviews the fresh submission). This wipes
+-- any assessment the base seed created for these soldiers, including Rodriguez's
+-- PRE. Add EDIPIs to free up more soldiers for live-submission demos.
+DELETE FROM red_flags WHERE assessment_id IN (
+  SELECT a.id FROM assessments a
+  JOIN service_members sm ON sm.id = a.service_member_id
+  WHERE sm.edipi IN ('2000000001')   -- SPC Rodriguez (service-member persona)
+);
+DELETE FROM assessments WHERE service_member_id IN (
+  SELECT id FROM service_members WHERE edipi IN ('2000000001')
+);
+
+-- Restore the clean deployable default in case a prior submission flipped it.
+UPDATE service_members
+SET deployable = true, deployable_reason = NULL
+WHERE edipi IN ('2000000001');
 
 COMMIT;
 

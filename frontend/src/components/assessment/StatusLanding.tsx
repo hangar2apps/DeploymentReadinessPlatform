@@ -60,6 +60,12 @@ export function StatusLanding({
 
   const copy = STATUS_COPY[status];
   const canStart = status === 'NOT_STARTED' || status === 'DRAFT';
+  // The NOT_STARTED copy is PRE-worded by default; adjust it for a due POST/PDHRA.
+  const isPostDeployment = type === 'POST' || type === 'PDHRA';
+  const detail =
+    status === 'NOT_STARTED' && isPostDeployment
+      ? 'Complete your Post-Deployment Health Assessment so the medical team can review your health following your return.'
+      : copy.detail;
 
   return (
     <Card title="Deployment Health Assessment">
@@ -74,7 +80,7 @@ export function StatusLanding({
           {status !== 'NOT_STARTED' && <StatusBadge status={status} />}
         </div>
 
-        <p className="text-sm text-muted">{copy.detail}</p>
+        <p className="text-sm text-muted">{detail}</p>
 
         {canStart && (
           <button
