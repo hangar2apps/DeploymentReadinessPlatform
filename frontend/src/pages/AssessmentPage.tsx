@@ -11,6 +11,7 @@ import {
 import { usePersona } from '../context/RoleContext';
 import { useDev } from '../context/DevContext';
 import { Card } from '../components/ui/Card';
+import { LoadingScreen } from '../components/ui/LoadingScreen';
 import { StatusLanding } from '../components/assessment/StatusLanding';
 import { SectionNav, type NavSection } from '../components/assessment/SectionNav';
 import { buildSections } from '../components/assessment/sections';
@@ -36,6 +37,7 @@ export default function AssessmentPage() {
   // The real (UUID) service member id, resolved from the persona's EDIPI. The
   // persona.member_id is a fixture string, so the backend can't accept it.
   const [memberId, setMemberId] = useState<string | null>(null);
+  const [bootstrapping, setBootstrapping] = useState(true);
 
   useEffect(() => {
     let active = true;
@@ -64,6 +66,9 @@ export default function AssessmentPage() {
       })
       .catch(() => {
         if (active) setStatus('NOT_STARTED');
+      })
+      .finally(() => {
+        if (active) setBootstrapping(false);
       });
     return () => {
       active = false;
@@ -177,6 +182,15 @@ export default function AssessmentPage() {
     setSeed({ clean: devClean, partial: devPartial, done: devDone });
     return () => setSeed(null);
   }, [setSeed, devClean, devPartial, devDone]);
+
+  if (bootstrapping) {
+    return (
+      <LoadingScreen
+        message="Loading assessment..."
+        detail="Checking your record and restoring any saved draft before you continue."
+      />
+    );
+  }
 
   let body;
 

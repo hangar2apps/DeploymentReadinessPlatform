@@ -18,6 +18,7 @@ import { usePersona } from '../context/RoleContext';
 import { useLayout } from '../context/LayoutContext';
 import { KpiCard } from '../components/ui/KpiCard';
 import { Card } from '../components/ui/Card';
+import { LoadingScreen } from '../components/ui/LoadingScreen';
 import { CompanyReadiness } from '../components/commander/CompanyReadiness';
 import { AttentionRequired } from '../components/commander/AttentionRequired';
 import { TrendChart } from '../components/commander/TrendChart';
@@ -112,7 +113,12 @@ export default function CommanderPage() {
   }
 
   if (!readiness) {
-    return <div className="text-sm text-muted">Loading readiness…</div>;
+    return (
+      <LoadingScreen
+        message="Loading readiness..."
+        detail="Pulling readiness, trends, and red-flag summaries for the commander dashboard."
+      />
+    );
   }
 
   return (
