@@ -8,13 +8,15 @@ doesn't require a live SendGrid account.
 
 import logging
 import os
+from html import escape
 
 log = logging.getLogger(__name__)
 
 _API_KEY = os.getenv("SENDGRID_API_KEY", "")
 _FROM = os.getenv("SENDGRID_FROM_EMAIL", "noreply@drp.army.mil")
 
-# Pre-deployment checklist items shown in the 90-day blast.
+# Pre-deployment checklist items shown in the 90-day blast when no
+# assessment-specific items can be derived.
 _CHECKLIST_ITEMS = [
     "Pre-Deployment Health Assessment (DD 2795)",
     "Dental exam — must be Class 1 or 2",
@@ -28,7 +30,7 @@ _CHECKLIST_ITEMS = [
 
 
 def _send(to: str, subject: str, html: str) -> None:
-    """Low-level send.  Falls back to a log line when no API key is configured."""
+    """Low-level send. Falls back to a log line when no API key is configured."""
     if not _API_KEY:
         log.warning("SENDGRID_API_KEY not set — skipping send to %s: %s", to, subject)
         return
@@ -58,23 +60,39 @@ def send_deployment_blast(
     member: dict,
     unit_name: str,
     deployment_date: str,
+    days_until: int | None = None,
     incomplete_items: list[str] | None = None,
 ) -> None:
     """
-    Send the 90-day pre-deployment readiness notification to one service member.
+    Send the pre-deployment readiness notification to one service member.
 
-    `incomplete_items` is a list of plain-text item labels the member is known
-    to be missing based on their latest assessment.  Falls back to the full
-    generic checklist when None or empty.
+    `incomplete_items` lists the specific items the member is missing from
+    their latest assessment.  Falls back to the full generic checklist when
+    None or empty.
+
+    `days_until` is shown in the email body.  Callers should compute it from
+    the actual deployment_date so the text is accurate regardless of when the
+    email is sent.
     """
     email = member.get("email")
     if not email:
-        log.warning("No email for %s %s (id %s) — skipping", member.get("rank"), member.get("last_name"), member.get("id"))
+        log.warning(
+            "No email for %s %s (id %s) — skipping",
+            member.get("rank"), member.get("last_name"), member.get("id"),
+        )
         return
 
-    name = f"{member.get('rank', '')} {member.get('first_name', '')} {member.get('last_name', '')}".strip()
+    name = escape(
+        f"{member.get('rank', '')} {member.get('first_name', '')} {member.get('last_name', '')}".strip()
+    )
+    unit_name_safe = escape(str(unit_name))
+    deployment_date_safe = escape(str(deployment_date))
+    days_text = escape(str(days_until)) if days_until is not None else "90"
+
     items = incomplete_items or _CHECKLIST_ITEMS
-    items_html = "".join(f"<li style='margin:4px 0'>{i}</li>" for i in items)
+    items_html = "".join(
+        f"<li style='margin:4px 0'>{escape(str(item))}</li>" for item in items
+    )
 
     html = f"""
     <div style="font-family:Arial,sans-serif;max-width:600px;margin:0 auto;color:#1a1a1a">
@@ -84,8 +102,9 @@ def send_deployment_blast(
       <div style="padding:24px">
         <p>Dear {name},</p>
         <p>
-          Your unit (<strong>{unit_name}</strong>) has a deployment scheduled for
-          <strong>{deployment_date}</strong> — approximately <strong>90 days</strong> from now.
+          Your unit (<strong>{unit_name_safe}</strong>) has a deployment scheduled for
+          <strong>{deployment_date_safe}</strong> — approximately
+          <strong>{days_text} days</strong> from now.
         </p>
         <p>
           To be certified as deployable you must complete the following items
@@ -96,7 +115,7 @@ def send_deployment_blast(
         </ul>
         <p>
           Log in to the Deployment Readiness Platform to submit your Pre-Deployment
-          Health Assessment and track your status.  Contact your unit's medical
+          Health Assessment and track your status. Contact your unit's medical
           provider if you have questions about any of these requirements.
         </p>
         <p style="margin-top:32px;font-size:12px;color:#666">
@@ -106,7 +125,7 @@ def send_deployment_blast(
       </div>
     </div>
     """
-    _send(email, f"[DRP] 90-Day Deployment Readiness Notice — {unit_name}", html)
+    _send(email, f"[DRP] Deployment Readiness Notice — {unit_name}", html)
 
 
 # ---------------------------------------------------------------------------
@@ -120,25 +139,30 @@ def send_referral_notification(member: dict, assessment: dict) -> None:
     """
     email = member.get("email")
     if not email:
-        log.warning("No email for %s %s (id %s) — skipping", member.get("rank"), member.get("last_name"), member.get("id"))
+        log.warning(
+            "No email for %s %s (id %s) — skipping",
+            member.get("rank"), member.get("last_name"), member.get("id"),
+        )
         return
 
-    name = f"{member.get('rank', '')} {member.get('first_name', '')} {member.get('last_name', '')}".strip()
-
-    referral_type = assessment.get("referral_type") or "General"
-    referral_notes = assessment.get("referral_notes") or ""
-    notes_block = (
-        f"<p><strong>Provider notes:</strong> {referral_notes}</p>"
-        if referral_notes
-        else ""
+    name = escape(
+        f"{member.get('rank', '')} {member.get('first_name', '')} {member.get('last_name', '')}".strip()
     )
 
-    type_display = {
+    referral_type = assessment.get("referral_type") or "OTHER"
+    type_display = escape({
         "BEHAVIORAL_HEALTH": "Behavioral Health",
         "DENTAL": "Dental",
         "MEDICAL": "Medical",
         "OTHER": "General Medical",
-    }.get(referral_type, referral_type.replace("_", " ").title())
+    }.get(referral_type, referral_type.replace("_", " ").title()))
+
+    raw_notes = (assessment.get("referral_notes") or "").strip()
+    notes_block = (
+        f"<p><strong>Provider notes:</strong> {escape(raw_notes)}</p>"
+        if raw_notes
+        else ""
+    )
 
     html = f"""
     <div style="font-family:Arial,sans-serif;max-width:600px;margin:0 auto;color:#1a1a1a">
@@ -156,8 +180,8 @@ def send_referral_notification(member: dict, assessment: dict) -> None:
         </div>
         {notes_block}
         <p>
-          Please follow up with your unit's medical provider or the appropriate
-          clinic as soon as possible to resolve this item.  Your deployable status
+          Please follow up with your unit&#39;s medical provider or the appropriate
+          clinic as soon as possible to resolve this item. Your deployable status
           will be updated once the referral is resolved.
         </p>
         <p>

@@ -43,8 +43,9 @@ def create_app() -> Flask:
     app.register_blueprint(documents_bp)
     app.register_blueprint(notifications_bp)
 
-    import scheduler as _scheduler
-    _scheduler.start()
+    if os.getenv("SCHEDULER_ENABLED", "").lower() == "true":
+        import scheduler as _scheduler
+        _scheduler.start()
 
     @app.get("/api/health")
     def health() -> Response:
