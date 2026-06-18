@@ -3,15 +3,21 @@ variables:
     default: "ghcr.io/defenseunicorns/deployment-readiness-platform:0.1.0"
 
 tasks:
-  - name: build
-    description: "Build the DRP container image from src/backend/Dockerfile"
+  - name: local-backend
+    description: "Start the Flask REST API on :${BACKEND_PORT}"
     actions:
-      # Context is src/ so the Dockerfile sees both backend/ and frontend/.
-      - cmd: |
-          docker build \
-            -f "src/backend/Dockerfile" \
-            -t "${IMAGE}" \
-            "src"
+      - description: "Sync the uv environment, then run the app"
+        dir: backend
+        cmd: |
+          uv sync
+          uv run python app.py
+
+  - name: build
+    description: "Build the DRP container image (Flask API + built React SPA) from src/backend/Dockerfile"
+    actions:
+      # Export the build directly to a local OCI-layout archive instead of loading it into the docker daemon. zarf.yaml references this archive via `imageArchives`, so the image never needs to be pushed to (or pulled from) ghcr.io. buildx provides BuildKit, which the Dockerfile's RUN --mount cache/bind mounts require, and `type=oci` writes the layout Zarf wants.
+      # TODO change this to use an OCI registry when the image is pushed there
+      - cmd: docker buildx build -f "backend/Dockerfile" -t "${IMAGE}" --output "type=oci,dest=images/drp-0.1.0.oci.tar" .
       - cmd: uds zarf package create . --no-color --confirm
 
   - name: cluster
@@ -23,20 +29,3 @@ tasks:
     description: "Deploy the built Zarf package to the local cluster"
     actions:
       - cmd: uds zarf package deploy zarf-package-deployment-readiness-platform-*.tar.zst --no-color --confirm
-
-  - name: local-backend
-    description: "Start the Flask REST API on :${BACKEND_PORT}"
-    actions:
-      - description: "Sync the uv environment, then run the app"
-        dir: backend
-        cmd: |
-          uv sync
-          uv run python app.py
-
-  - name: backend-build
-    description: "Build the combined app image (Flask API + built React SPA)"
-    actions:
-      - description: "Build the Docker image from the DRP dir as context"
-        # Context is the DeploymentReadinessPlatform dir (this dir) so the build can see both backend/ and frontend/; the Dockerfile lives in backend/.
-        # DOCKER_BUILDKIT=1 enables BuildKit, which the Dockerfile's RUN --mount cache/bind mounts require.
-        cmd: DOCKER_BUILDKIT=1 docker build -f backend/Dockerfile -t drp .

@@ -51,5 +51,8 @@ components:
         files:
           - manifests/uds-package.yaml
 
-    images:
-      - ghcr.io/defenseunicorns/deployment-readiness-platform:0.1.0
+    # Pull the app image from a local OCI-layout archive built by `uds run build` (see tasks.yaml) rather than from ghcr.io. The image is not published to a registry, so this keeps `zarf package create` fully offline/local.
+    imageArchives:
+      - path: images/drp-0.1.0.oci.tar
+        images:
+          - ghcr.io/defenseunicorns/deployment-readiness-platform:0.1.0

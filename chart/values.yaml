@@ -3,7 +3,7 @@ image:
   tag: "0.1.0"
   pullPolicy: IfNotPresent
 
-replicaCount: 2
+replicaCount: 1
 
 config:
   # Port gunicorn binds; must match the image EXPOSE. Fixed here (not a deploy-time var) — the Service fronts it via a named targetPort, so there's no reason to retune it per environment.
