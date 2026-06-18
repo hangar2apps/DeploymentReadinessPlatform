@@ -109,8 +109,6 @@ export default function AssessmentPage() {
         onPhoto: handlePhoto,
         type,
       }),
-    // `set`/`handlePhoto` are stable updaters; only data deps matter here.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
     [responses, photoName, persona, type],
   );
 
