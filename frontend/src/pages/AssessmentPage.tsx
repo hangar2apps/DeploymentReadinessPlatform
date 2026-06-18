@@ -58,11 +58,14 @@ export default function AssessmentPage() {
         if (a) {
           setStatus(a.status);
           setAssessedType(a.type);
-          if (a.type === 'PRE' && a.status !== 'DRAFT') {
+          if (a.status === 'DRAFT') {
+            // Resume an in-progress assessment under its own type.
+            setType(a.type);
+          } else if (a.type === 'PRE') {
             // Completed pre-deployment screen -> post is now due; stay on the
             // landing so it can be started instead of showing the submitted view.
             setType('POST');
-          } else if (a.status !== 'DRAFT') {
+          } else {
             setPhase('submitted');
           }
           return;
@@ -73,6 +76,7 @@ export default function AssessmentPage() {
           setResponses(d.responses ?? {});
           setPhotoName(d.photoName ?? null);
           setStep(d.step ?? 0);
+          setType(d.type ?? 'PRE');
           setStatus('DRAFT');
         } else {
           setStatus('NOT_STARTED');
@@ -91,8 +95,8 @@ export default function AssessmentPage() {
 
   useEffect(() => {
     if (phase !== 'form') return;
-    void saveDraft(persona.member_id, { step, responses, photoName });
-  }, [phase, step, responses, photoName, persona.member_id]);
+    void saveDraft(persona.member_id, { step, responses, photoName, type });
+  }, [phase, step, responses, photoName, type, persona.member_id]);
 
   const set: SetResponse = (key, value) =>
     setResponses((r) => ({ ...r, [key]: value }));

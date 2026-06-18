@@ -191,6 +191,7 @@ export function uploadImmunizationRecord(
 // and the page is unchanged. `id` will carry the server assessment row then.
 export interface AssessmentDraft {
   id?: string;
+  type?: AssessmentType; // optional for drafts saved before type was tracked
   step: number;
   responses: AssessmentResponses;
   photoName: string | null;
