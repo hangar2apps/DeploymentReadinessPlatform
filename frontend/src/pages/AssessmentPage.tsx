@@ -22,13 +22,13 @@ import type {
 } from '../components/assessment/types';
 import { fullResponses, partialResponses } from '../lib/assessmentDev';
 
-type Status = Assessment['status'] | 'NOT_STARTED';
+type Status = Assessment['status'] | 'NOT_STARTED' | null; // null = loading
 type Phase = 'landing' | 'form' | 'submitted';
 
 export default function AssessmentPage() {
   const persona = usePersona();
   const [phase, setPhase] = useState<Phase>('landing');
-  const [status, setStatus] = useState<Status>('NOT_STARTED');
+  const [status, setStatus] = useState<Status>(null);
   const [step, setStep] = useState(0);
   const [responses, setResponses] = useState<AssessmentResponses>({});
   const [photoName, setPhotoName] = useState<string | null>(null);
@@ -51,6 +51,7 @@ export default function AssessmentPage() {
         if (!active) return;
         if (a) {
           setStatus(a.status);
+          if (a.status !== 'DRAFT') setPhase('submitted');
           return;
         }
         const d = await loadDraft(persona.member_id);

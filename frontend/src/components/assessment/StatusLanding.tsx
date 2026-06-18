@@ -46,10 +46,18 @@ export function StatusLanding({
   onStart,
 }: {
   memberName: string;
-  status: Assessment['status'] | 'NOT_STARTED';
+  status: Assessment['status'] | 'NOT_STARTED' | null;
   type: Assessment['type'];
   onStart: () => void;
 }) {
+  if (status === null) {
+    return (
+      <Card title="Deployment Health Assessment">
+        <div className="animate-pulse py-8 text-center text-sm text-muted">Loading…</div>
+      </Card>
+    );
+  }
+
   const copy = STATUS_COPY[status];
   const canStart = status === 'NOT_STARTED' || status === 'DRAFT';
 
