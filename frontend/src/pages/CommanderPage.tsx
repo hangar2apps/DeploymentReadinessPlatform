@@ -2,7 +2,7 @@
 // KPIs, by-company bars w/ roster drill-down, attention-required, 90-day trend,
 // deployment window, client-side CUB brief export, and the data-chat panel.
 
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import type {
   CompanyReadiness as CompanyRow,
   ReadinessRollup,
@@ -36,6 +36,7 @@ export default function CommanderPage() {
   const [redFlags, setRedFlags] = useState<RedFlagSummaryItem[]>([]);
   const [drill, setDrill] = useState<CompanyRow | null>(null);
   const [error, setError] = useState(false);
+  const chatRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     const unit = persona.unit_id;
@@ -51,8 +52,22 @@ export default function CommanderPage() {
         setTrend(t);
         setRedFlags(f);
         setError(false);
-        // Inject the export buttons into the shared top bar (right side).
-        setHeaderActions(<CommanderExports readiness={r} redFlags={f} />);
+        // Inject the export buttons into the shared top bar (right side), plus an
+        // "ASK" shortcut that jumps to the data-chat panel at the bottom.
+        setHeaderActions(
+          <div className="flex items-center gap-2">
+            <button
+              type="button"
+              onClick={() =>
+                chatRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' })
+              }
+              className="shrink-0 rounded-md border border-border px-4 py-1.5 text-xs font-semibold text-ink transition-colors hover:border-accent hover:text-accent"
+            >
+              ASK
+            </button>
+            <CommanderExports readiness={r} redFlags={f} />
+          </div>,
+        );
         // Inject the unit roster into the sidebar: company readiness, click to
         // drill into that company's non-deployable roster.
         setSidebarNav(
@@ -160,12 +175,14 @@ export default function CommanderPage() {
         </Card>
       </div>
 
-      {/* Data chat — the demo wow moment */}
-      <Card title="Readiness Assistant — Ask the Data">
-        <div className="h-80">
-          <CommanderChat unitId={persona.unit_id} />
-        </div>
-      </Card>
+      {/* Data chat — the demo wow moment (ASK button in the header scrolls here) */}
+      <div ref={chatRef} className="scroll-mt-4">
+        <Card title="Readiness Assistant — Ask the Data">
+          <div className="h-80">
+            <CommanderChat unitId={persona.unit_id} />
+          </div>
+        </Card>
+      </div>
 
       <RosterDrawer company={drill} onClose={() => setDrill(null)} />
     </div>

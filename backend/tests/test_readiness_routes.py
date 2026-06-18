@@ -4,12 +4,44 @@ These tests mock the DB layer so they verify route behavior and response shapes
 without requiring a live Supabase connection.
 """
 
+import contextlib
 from datetime import date as real_date
+from decimal import Decimal
 from unittest.mock import patch
 
 import pytest
 
 from app import create_app
+
+
+def _recording_transaction(calls, assessment_row, remaining_row=None):
+    """db.transaction() stand-in for certify/refer tests.
+
+    Records each (sql, params) into `calls`, returns `assessment_row` for the
+    assessment UPDATE...RETURNING and `remaining_row` for the remaining-HIGH-flag
+    SELECT (certify only).
+    """
+
+    class _Cur:
+        def __init__(self):
+            self._sql = ""
+
+        def execute(self, sql, params=None):
+            calls.append((sql, params))
+            self._sql = sql
+
+        def fetchone(self):
+            if "UPDATE assessments" in self._sql:
+                return assessment_row
+            if "red_flags rf" in self._sql:
+                return remaining_row
+            return None
+
+    @contextlib.contextmanager
+    def _cm():
+        yield _Cur()
+
+    return _cm
 
 
 @pytest.fixture
@@ -137,6 +169,79 @@ class TestReadinessTrendEndpoint:
         assert response.get_json() == {"error": "unit not found"}
 
 
+class TestPostDeploymentReadinessEndpoint:
+    def test_converts_decimals_and_fills_missing_keys(self, client):
+        # Mirror what psycopg actually returns: ROUND(...::numeric, 1) yields a
+        # Decimal, and a key may be absent. The route must coerce to float and
+        # fall back to defaults, so feed values that differ from the response.
+        row = {
+            "total_returned": 8,
+            "post_dha_complete": 3,
+            # post_dha_pending intentionally omitted -> exercises .get default
+            "flagged_behavioral_health": 3,
+            "flagged_tbi_screening": 4,
+            "avg_phq9_delta": Decimal("3.0"),
+            "avg_pcl5_delta": Decimal("17.0"),
+        }
+
+        with patch("blueprints.readiness._unit_exists", return_value=True), patch(
+            "blueprints.readiness.db.query_one",
+            return_value=row,
+        ):
+            response = client.get("/api/readiness/post-deployment?unit_id=bn-1")
+
+        assert response.status_code == 200
+        data = response.get_json()
+        assert data == {
+            "total_returned": 8,
+            "post_dha_complete": 3,
+            "post_dha_pending": 0,
+            "flagged_behavioral_health": 3,
+            "flagged_tbi_screening": 4,
+            "avg_phq9_delta": 3.0,
+            "avg_pcl5_delta": 17.0,
+        }
+        # JSON has no Decimal type, so a leaked Decimal would serialize the same;
+        # assert the Python types to prove float() actually ran.
+        assert isinstance(data["avg_phq9_delta"], float)
+        assert isinstance(data["avg_pcl5_delta"], float)
+
+    def test_defaults_when_no_unit_arg_and_empty_metrics(self, client):
+        # No unit_id -> _default_unit_id() runs; empty metrics row -> the `or {}`
+        # path and every `.get(..., default) or default` fallback fire.
+        def query_one_side_effect(sql, params=None):
+            if "parent_unit_id IS NULL" in sql:
+                return {"id": "bn-default"}
+            if "SELECT id FROM units WHERE id = %s" in sql:
+                return {"id": params[0]}
+            if "latest_post" in sql:
+                return None
+            raise AssertionError(f"Unexpected query_one SQL: {sql}")
+
+        with patch(
+            "blueprints.readiness.db.query_one", side_effect=query_one_side_effect
+        ):
+            response = client.get("/api/readiness/post-deployment")
+
+        assert response.status_code == 200
+        assert response.get_json() == {
+            "total_returned": 0,
+            "post_dha_complete": 0,
+            "post_dha_pending": 0,
+            "flagged_behavioral_health": 0,
+            "flagged_tbi_screening": 0,
+            "avg_phq9_delta": 0.0,
+            "avg_pcl5_delta": 0.0,
+        }
+
+    def test_returns_404_for_unknown_unit(self, client):
+        with patch("blueprints.readiness._unit_exists", return_value=False):
+            response = client.get("/api/readiness/post-deployment?unit_id=bad-unit")
+
+        assert response.status_code == 404
+        assert response.get_json() == {"error": "unit not found"}
+
+
 class TestRedFlagsSummaryEndpoint:
     def test_returns_array_response(self, client):
         rows = [
@@ -170,17 +275,11 @@ class TestAssessmentBehaviorChanges:
             "service_member_id": "member-1",
             "status": "CERTIFIED",
         }
-        execute_calls = []
+        calls = []
 
-        def execute_side_effect(sql, params=None, returning=True):
-            execute_calls.append((sql, params, returning))
-            if "UPDATE assessments" in sql:
-                return assessment_row
-            return None
-
-        with patch("blueprints.assessments.db.execute", side_effect=execute_side_effect), patch(
-            "blueprints.assessments.db.query_one",
-            return_value={"type": "DENTAL_CLASS_3"},
+        with patch(
+            "blueprints.assessments.db.transaction",
+            _recording_transaction(calls, assessment_row, {"type": "DENTAL_CLASS_3"}),
         ):
             response = client.patch(
                 "/api/assessments/00000000-0000-0000-0000-000000000001/certify",
@@ -189,7 +288,7 @@ class TestAssessmentBehaviorChanges:
 
         assert response.status_code == 200
         service_member_update = next(
-            call for call in execute_calls if "UPDATE service_members SET deployable" in call[0]
+            call for call in calls if "UPDATE service_members SET deployable" in call[0]
         )
         assert service_member_update[1] == (False, "Dental", "member-1")
 
@@ -199,17 +298,11 @@ class TestAssessmentBehaviorChanges:
             "service_member_id": "member-1",
             "status": "CERTIFIED",
         }
-        execute_calls = []
+        calls = []
 
-        def execute_side_effect(sql, params=None, returning=True):
-            execute_calls.append((sql, params, returning))
-            if "UPDATE assessments" in sql:
-                return assessment_row
-            return None
-
-        with patch("blueprints.assessments.db.execute", side_effect=execute_side_effect), patch(
-            "blueprints.assessments.db.query_one",
-            return_value=None,
+        with patch(
+            "blueprints.assessments.db.transaction",
+            _recording_transaction(calls, assessment_row, None),
         ):
             response = client.patch(
                 "/api/assessments/00000000-0000-0000-0000-000000000001/certify",
@@ -218,7 +311,7 @@ class TestAssessmentBehaviorChanges:
 
         assert response.status_code == 200
         service_member_update = next(
-            call for call in execute_calls if "UPDATE service_members SET deployable" in call[0]
+            call for call in calls if "UPDATE service_members SET deployable" in call[0]
         )
         assert service_member_update[1] == (True, None, "member-1")
 
@@ -238,15 +331,12 @@ class TestAssessmentBehaviorChanges:
             "status": "REFERRED",
             "referral_type": referral_type,
         }
-        execute_calls = []
+        calls = []
 
-        def execute_side_effect(sql, params=None, returning=True):
-            execute_calls.append((sql, params, returning))
-            if "UPDATE assessments" in sql:
-                return assessment_row
-            return None
-
-        with patch("blueprints.assessments.db.execute", side_effect=execute_side_effect):
+        with patch(
+            "blueprints.assessments.db.transaction",
+            _recording_transaction(calls, assessment_row),
+        ):
             response = client.patch(
                 "/api/assessments/00000000-0000-0000-0000-000000000001/refer",
                 json={"referral_type": referral_type, "referral_notes": "note"},
@@ -254,6 +344,6 @@ class TestAssessmentBehaviorChanges:
 
         assert response.status_code == 200
         service_member_update = next(
-            call for call in execute_calls if "UPDATE service_members SET deployable" in call[0]
+            call for call in calls if "UPDATE service_members SET deployable" in call[0]
         )
         assert service_member_update[1] == (expected_reason, "member-1")

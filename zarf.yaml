@@ -1,0 +1,58 @@
+# DRP ships as a single image: the Flask API (gunicorn) plus the built React SPA it serves from the same origin — see DeploymentReadinessPlatform/backend/Dockerfile.
+kind: ZarfPackageConfig
+metadata:
+  name: deployment-readiness-platform
+  version: "0.1.0"
+  description: "Deployment Readiness Platform — Flask API + React SPA, packaged for UDS"
+
+variables:
+  - name: DOMAIN
+    description: "External domain the app is exposed under (→ drp.<domain>)"
+    default: "uds.dev"
+    prompt: false
+
+  - name: OPENAI_MODEL
+    description: "OpenAI chat model for the commander data-chat + policy RAG"
+    default: "gpt-4o-mini"
+    prompt: false
+
+  - name: BACKEND_DEBUG
+    description: "Enable Flask debug mode (never true in production)"
+    default: "false"
+    prompt: false
+
+  - name: SUPABASE_CONNECTION_STRING
+    description: "Postgres DSN for the Supabase (pgvector) database"
+    default: ""
+    prompt: true
+    sensitive: true
+
+  - name: OPENAI_API_KEY
+    description: "OpenAI API key"
+    default: ""
+    prompt: true
+    sensitive: true
+
+components:
+  - name: deployment-readiness-platform
+    required: true
+
+    charts:
+      - name: drp
+        version: 0.1.0
+        namespace: drp
+        localPath: chart/
+        valuesFiles:
+          - values/values.yaml
+
+    manifests:
+      - name: uds-package
+        namespace: drp
+        files:
+          - manifests/uds-package.yaml
+
+    # Pull the app image from a local OCI-layout archive built by `uds run build` (see tasks.yaml) rather than from ghcr.io. The image is not published to a registry, so this keeps `zarf package create` fully offline/local.
+    imageArchives:
+      - path: images/drp-0.1.0.oci.tar
+        images:
+          - ghcr.io/defenseunicorns/deployment-readiness-platform:0.1.0

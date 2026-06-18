@@ -1,0 +1,7 @@
+config:
+  openaiModel: "###ZARF_VAR_OPENAI_MODEL###"
+  backendDebug: "###ZARF_VAR_BACKEND_DEBUG###"
+
+secrets:
+  supabaseConnectionString: "###ZARF_VAR_SUPABASE_CONNECTION_STRING###"
+  openaiApiKey: "###ZARF_VAR_OPENAI_API_KEY###"

@@ -61,6 +61,9 @@ export function AssessmentDetailDrawer({
   const [referType, setReferType] = useState<ReferralType>('BEHAVIORAL_HEALTH');
   const [referNotes, setReferNotes] = useState('');
   const [error, setError] = useState<string | null>(null);
+  // After a certify/refer succeeds, holds the confirmation popup contents
+  // (heading + the address the member email went to, or null if not sent).
+  const [confirm, setConfirm] = useState<{ heading: string; to: string | null } | null>(null);
 
   useEffect(() => {
     if (!selected) return;
@@ -95,16 +98,17 @@ export function AssessmentDetailDrawer({
   const loading = loadedFor !== selected.id;
   const a = detail ?? null;
   const m = a?.member ?? selected.member;
-  const pending = (a?.status ?? selected.status) === 'SUBMITTED' || (a?.status ?? selected.status) === 'UNDER_REVIEW';
+  const currentStatus = a?.status ?? selected.status;
+  const pending = currentStatus === 'SUBMITTED' || currentStatus === 'UNDER_REVIEW';
 
   async function certify() {
     if (busy) return;
     setBusy(true);
     setError(null);
     try {
-      await certifyAssessment(selected!.id);
+      const res = await certifyAssessment(selected!.id);
       onResolved(selected!.id, 'CERTIFIED');
-      onClose();
+      setConfirm({ heading: 'Certified — Deployable', to: res.notified_to ?? null });
     } catch {
       setError('Could not certify. Check the gateway and try again.');
     } finally {
@@ -117,12 +121,12 @@ export function AssessmentDetailDrawer({
     setBusy(true);
     setError(null);
     try {
-      await referAssessment(selected!.id, {
+      const res = await referAssessment(selected!.id, {
         referral_type: referType,
         referral_notes: referNotes.trim(),
       });
       onResolved(selected!.id, 'REFERRED');
-      onClose();
+      setConfirm({ heading: 'Referred — Non-Deployable', to: res.notified_to ?? null });
     } catch {
       setError('Could not refer. Check the gateway and try again.');
     } finally {
@@ -162,9 +166,21 @@ export function AssessmentDetailDrawer({
             <button
               type="button"
               onClick={onClose}
-              className="rounded-md border border-border px-2 py-1 text-sm text-muted hover:text-ink"
+              aria-label="Close"
+              className="rounded-md p-1 text-muted transition-colors hover:bg-surface-2 hover:text-ink"
             >
-              Close
+              <svg
+                width="18"
+                height="18"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="2"
+                strokeLinecap="round"
+                aria-hidden="true"
+              >
+                <path d="M6 6l12 12M18 6L6 18" />
+              </svg>
             </button>
           </div>
         </div>
@@ -312,6 +328,46 @@ export function AssessmentDetailDrawer({
           </div>
         )}
       </div>
+
+      {/* Confirmation popup after a certify/refer decision (with email status). */}
+      {confirm && (
+        <div className="absolute inset-0 z-[60] flex items-center justify-center p-4">
+          <div
+            className="absolute inset-0 bg-black/60"
+            onClick={() => {
+              setConfirm(null);
+              onClose();
+            }}
+          />
+          <div
+            role="dialog"
+            aria-modal="true"
+            className="relative w-full max-w-sm rounded-lg border border-border bg-surface p-5 shadow-xl"
+          >
+            <h3 className="text-sm font-semibold text-ink">{confirm.heading}</h3>
+            <p className="mt-2 text-sm text-muted">
+              {confirm.to ? (
+                <>
+                  Email successfully sent to{' '}
+                  <span className="font-mono text-ink">{confirm.to}</span>.
+                </>
+              ) : (
+                'Decision saved. No email was sent — the member has no address on record or the email service is unavailable.'
+              )}
+            </p>
+            <button
+              type="button"
+              onClick={() => {
+                setConfirm(null);
+                onClose();
+              }}
+              className="mt-4 w-full rounded-md bg-accent px-3 py-2 text-sm font-medium text-bg hover:opacity-90"
+            >
+              Done
+            </button>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

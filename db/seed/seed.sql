@@ -32,6 +32,10 @@ INSERT INTO units (id, uic, name, short_name, parent_unit_id) VALUES
   ('00000000-0000-0000-0000-000000000005', 'WJ5TC0', 'Charlie Company', 'C CO', '00000000-0000-0000-0000-000000000001'),
   ('00000000-0000-0000-0000-000000000006', 'WJ5TD0', 'Delta Company',   'D CO', '00000000-0000-0000-0000-000000000001');
 
+-- Battalion deployment date (used by the deployment-notification blast). Column
+-- added in db/migrations/0001_add_notification_columns.sql.
+UPDATE units SET deployment_date = '2026-09-15' WHERE parent_unit_id IS NULL;
+
 -- ----------------------------------------------------------------------------
 -- Service members — 90 soldiers across 5 companies
 --   deployable=false rows carry a category reason: 'Dental' | 'Behavioral
@@ -142,6 +146,12 @@ FROM (
   ('5000000019','SGT','Whitaker','Lance','D','11B','WJ5TD0', true,  NULL)
 ) AS v(edipi, rank, last_name, first_name, middle_initial, mos, uic, deployable, deployable_reason)
 JOIN units u ON u.uic = v.uic;
+
+-- Demo email addresses so the referral / deployment notifications have a
+-- recipient (the email column is added in
+-- db/migrations/0001_add_notification_columns.sql). Synthetic addresses only.
+UPDATE service_members
+SET email = lower(first_name) || '.' || lower(last_name) || '@example.army.mil';
 
 -- ----------------------------------------------------------------------------
 -- Assessments — ~30 records across types (PRE/POST/PDHRA) and all statuses.
@@ -303,6 +313,21 @@ FROM (
   ('aaaaaaaa-aaaa-aaaa-aaaa-000000000015','IMMUNIZATION_GAP','MEDIUM','responses.immunizations_current == false','Immunization records incomplete or expired'),
   ('aaaaaaaa-aaaa-aaaa-aaaa-000000000016','NEW_MEDICATION','LOW','responses.new_medication == true','New medication started — provider review recommended')
 ) AS v(assessment_id, type, severity, rule_fired, message);
+
+-- ----------------------------------------------------------------------------
+-- Fake emails — one per service member, derived from name + EDIPI.
+-- Format: firstname.lastname.edipi@army.mil (all lowercase).
+-- Change to real addresses before going live.
+-- ----------------------------------------------------------------------------
+UPDATE service_members
+SET email = lower(first_name) || '.' || lower(last_name) || '.' || edipi || '@army.mil';
+
+-- Sample deployment dates — 90 days from a representative "today" so the
+-- scheduler and manual blast endpoint work out of the box against seed data.
+-- Adjust the dates to match your actual demo / test window.
+UPDATE units
+SET deployment_date = CURRENT_DATE + INTERVAL '90 days'
+WHERE short_name IN ('A CO', 'B CO');
 
 COMMIT;
 

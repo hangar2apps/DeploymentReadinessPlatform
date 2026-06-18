@@ -101,6 +101,84 @@ def readiness():
         }
     )
 
+@bp.get("/api/readiness/post-deployment")
+def readiness_post_deployment():
+    """GET /api/readiness/post-deployment — return-focused commander metrics."""
+    unit_id = request.args.get("unit_id") or _default_unit_id()
+    if not unit_id:
+        return jsonify({"error": "no units found"}), 404
+    if not _unit_exists(unit_id):
+        return jsonify({"error": "unit not found"}), 404
+
+    row = db.query_one(
+        """
+        WITH RECURSIVE subtree AS (
+          SELECT id FROM units WHERE id = %s
+          UNION ALL
+          SELECT u.id FROM units u JOIN subtree s ON u.parent_unit_id = s.id
+        ),
+        latest_post AS (
+          SELECT DISTINCT ON (a.service_member_id)
+            a.service_member_id,
+            a.status,
+            a.responses,
+            a.phq9_score,
+            a.pcl5_score
+          FROM assessments a
+          JOIN service_members sm ON sm.id = a.service_member_id
+          WHERE a.type = 'POST'
+            AND sm.unit_id IN (SELECT id FROM subtree)
+          ORDER BY
+            a.service_member_id,
+            a.submitted_at DESC NULLS LAST,
+            a.created_at DESC
+        ),
+        latest_pre AS (
+          SELECT DISTINCT ON (a.service_member_id)
+            a.service_member_id,
+            a.phq9_score,
+            a.pcl5_score
+          FROM assessments a
+          JOIN service_members sm ON sm.id = a.service_member_id
+          WHERE a.type = 'PRE'
+            AND sm.unit_id IN (SELECT id FROM subtree)
+          ORDER BY
+            a.service_member_id,
+            a.submitted_at DESC NULLS LAST,
+            a.created_at DESC
+        )
+        SELECT
+          COUNT(*) AS total_returned,
+          COUNT(*) FILTER (WHERE lp.status = 'CERTIFIED') AS post_dha_complete,
+          COUNT(*) FILTER (WHERE lp.status <> 'CERTIFIED') AS post_dha_pending,
+          COUNT(*) FILTER (
+            WHERE lp.phq9_score >= 10
+               OR lp.pcl5_score >= 31
+               OR COALESCE((lp.responses->>'phq9_q9')::int, 0) > 0
+          ) AS flagged_behavioral_health,
+          COUNT(*) FILTER (
+            WHERE COALESCE((lp.responses->>'blast_exposure')::boolean, false)
+          ) AS flagged_tbi_screening,
+          COALESCE(ROUND(AVG(lp.phq9_score - pre.phq9_score)::numeric, 1), 0.0) AS avg_phq9_delta,
+          COALESCE(ROUND(AVG(lp.pcl5_score - pre.pcl5_score)::numeric, 1), 0.0) AS avg_pcl5_delta
+        FROM latest_post lp
+        LEFT JOIN latest_pre pre ON pre.service_member_id = lp.service_member_id
+        """,
+        (unit_id,),
+    ) or {}
+
+    return jsonify(
+        {
+            "total_returned": row.get("total_returned", 0) or 0,
+            "post_dha_complete": row.get("post_dha_complete", 0) or 0,
+            "post_dha_pending": row.get("post_dha_pending", 0) or 0,
+            "flagged_behavioral_health": row.get("flagged_behavioral_health", 0) or 0,
+            "flagged_tbi_screening": row.get("flagged_tbi_screening", 0) or 0,
+            "avg_phq9_delta": float(row.get("avg_phq9_delta", 0.0) or 0.0),
+            "avg_pcl5_delta": float(row.get("avg_pcl5_delta", 0.0) or 0.0),
+        }
+    )
+
 
 @bp.get("/api/readiness/trend")
 def trend():

@@ -1,7 +1,7 @@
 import { Navigate, Outlet, useLocation, useNavigate } from 'react-router-dom';
 import { CuiBar } from './CuiBar';
 import { Sidebar } from './Sidebar';
-import { DevTools } from './DevTools';
+// import { DevTools } from './DevTools'; // dev-only seeding tools — disabled
 import { useRole } from '../../context/RoleContext';
 import { useLayout } from '../../context/LayoutContext';
 
@@ -66,7 +66,8 @@ export function AppLayout() {
           </main>
         </div>
       </div>
-      {import.meta.env.DEV && <DevTools />}
+      {/* Dev-only assessment seeding tools — disabled. */}
+      {/* {import.meta.env.DEV && <DevTools />} */}
     </div>
   );
 }

@@ -14,8 +14,6 @@ from typing import Tuple
 from flask import Blueprint, request, jsonify
 from flask.wrappers import Response
 
-import rag
-
 bp = Blueprint("documents", __name__, url_prefix="/api/documents")
 
 
@@ -50,6 +48,8 @@ def ingest() -> Tuple[Response, int]:
     if not content:
         return jsonify({"error": "empty document"}), 400
 
+    import rag
+
     try:
         result = rag.ingest_document(filename, content, doc_type)
     except Exception as e:  # DB or OpenAI unreachable, or unreadable PDF
@@ -62,6 +62,8 @@ def list_documents() -> Tuple[Response, int]:
     """
     List ingested documents.
     """
+
+    import rag
 
     try:
         documents = rag.list_documents()

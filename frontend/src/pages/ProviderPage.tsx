@@ -3,7 +3,7 @@
 // shared sidebar, and the RAG policy assistant. Consumes GET /api/assessments and
 // PATCH .../certify | .../refer (mocked until the backend is live).
 
-import { useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import type {
   AssessmentListItem,
   AssessmentStatus,
@@ -43,15 +43,42 @@ function counts(rows: AssessmentListItem[]) {
 }
 
 export default function ProviderPage() {
-  const { setSidebarNav } = useLayout();
+  const { setSidebarNav, setHeaderActions } = useLayout();
   const [queue, setQueue] = useState<AssessmentListItem[]>([]);
   const [typeFilter, setTypeFilter] = useState<TypeFilter>('ALL');
   const [selected, setSelected] = useState<AssessmentListItem | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(false);
+  const chatRef = useRef<HTMLDivElement>(null);
+
+  // "ASK" shortcut in the top bar that jumps to the policy assistant below.
+  useEffect(() => {
+    setHeaderActions(
+      <button
+        type="button"
+        onClick={() =>
+          chatRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' })
+        }
+        className="shrink-0 rounded-md border border-border px-4 py-1.5 text-xs font-semibold text-ink transition-colors hover:border-accent hover:text-accent"
+      >
+        ASK
+      </button>,
+    );
+    return () => setHeaderActions(null);
+  }, [setHeaderActions]);
 
   // Provider reviews the whole battalion queue (no unit scoping) — the backend
   // and mock both return every assessment when unit_id is omitted.
+  const loadQueue = useCallback(async () => {
+    try {
+      const rows = await getAssessments();
+      setQueue(rows);
+      setError(false);
+    } catch {
+      setError(true);
+    }
+  }, []);
+
   useEffect(() => {
     let active = true;
     getAssessments()
@@ -128,9 +155,10 @@ export default function ProviderPage() {
   }, [c, typeFilter, setSidebarNav]);
 
   function handleResolved(id: string, status: AssessmentStatus) {
-    setQueue((rows) =>
-      rows.map((a) => (a.id === id ? { ...a, status } : a)),
-    );
+    // Optimistic update for instant feedback, then resync with the DB so the
+    // grid can't drift from the real status (e.g. flags resolved on certify).
+    setQueue((rows) => rows.map((a) => (a.id === id ? { ...a, status } : a)));
+    void loadQueue();
   }
 
   if (error) {
@@ -152,16 +180,25 @@ export default function ProviderPage() {
   }
 
   return (
-    <div className="grid grid-cols-1 gap-5 lg:grid-cols-3">
-      <Card title="Review Queue" className="lg:col-span-2">
-        <ReviewQueue rows={visible} onSelect={setSelected} />
+
+    <div className="space-y-5">
+      <Card title="Review Queue">
+        {loading ? (
+          <p className="text-sm text-muted">Loading queue…</p>
+        ) : (
+          <ReviewQueue rows={visible} onSelect={setSelected} />
+        )}
+
       </Card>
 
-      <Card title="Policy Assistant">
-        <div className="h-[28rem]">
-          <PolicyChat />
-        </div>
-      </Card>
+      {/* ASK button in the header scrolls here. */}
+      <div ref={chatRef} className="scroll-mt-4">
+        <Card title="Policy Assistant">
+          <div className="h-[28rem]">
+            <PolicyChat />
+          </div>
+        </Card>
+      </div>
 
       {/* Keyed per selection so the drawer's local form state resets cleanly. */}
       <AssessmentDetailDrawer
