@@ -19,3 +19,11 @@ tasks:
         cmd: |
           uv sync
           uv run python app.py
+
+  - name: backend-build
+    description: "Build the combined app image (Flask API + built React SPA)"
+    actions:
+      - description: "Build the Docker image from the DRP dir as context"
+        # Context is the DeploymentReadinessPlatform dir (this dir) so the build can see both backend/ and frontend/; the Dockerfile lives in backend/.
+        # DOCKER_BUILDKIT=1 enables BuildKit, which the Dockerfile's RUN --mount cache/bind mounts require.
+        cmd: DOCKER_BUILDKIT=1 docker build -f backend/Dockerfile -t drp .
