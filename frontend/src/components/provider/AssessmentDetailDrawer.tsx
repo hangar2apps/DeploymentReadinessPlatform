@@ -15,6 +15,7 @@ import {
   certifyAssessment,
   referAssessment,
 } from '../../services/api';
+import { LoadingScreen } from '../ui/LoadingScreen';
 import { SeverityBadge, StatusBadge } from '../ui/Badge';
 import { ScreenerCard } from './ScreenerCard';
 import { relativeTime } from '../../lib/time';
@@ -171,7 +172,11 @@ export function AssessmentDetailDrawer({
         {/* Body */}
         <div className="min-h-0 flex-1 space-y-5 overflow-y-auto p-5">
           {loading ? (
-            <p className="text-sm text-muted">Loading assessment…</p>
+            <LoadingScreen
+              variant="panel"
+              message="Loading assessment..."
+              detail="Retrieving questionnaire responses, screeners, and referral context."
+            />
           ) : (
             <>
               {/* Red flags — surfaced first; review is confirmation, not discovery. */}

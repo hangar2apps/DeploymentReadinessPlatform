@@ -12,6 +12,7 @@ import type {
 import { getAssessments } from '../services/api';
 import { useLayout } from '../context/LayoutContext';
 import { Card } from '../components/ui/Card';
+import { LoadingScreen } from '../components/ui/LoadingScreen';
 import { ReviewQueue } from '../components/provider/ReviewQueue';
 import { AssessmentDetailDrawer } from '../components/provider/AssessmentDetailDrawer';
 import { PolicyChat } from '../components/provider/PolicyChat';
@@ -141,14 +142,19 @@ export default function ProviderPage() {
     );
   }
 
+  if (loading) {
+    return (
+      <LoadingScreen
+        message="Loading review queue..."
+        detail="Gathering submitted assessments and priority flags for provider review."
+      />
+    );
+  }
+
   return (
     <div className="grid grid-cols-1 gap-5 lg:grid-cols-3">
       <Card title="Review Queue" className="lg:col-span-2">
-        {loading ? (
-          <p className="text-sm text-muted">Loading queue…</p>
-        ) : (
-          <ReviewQueue rows={visible} onSelect={setSelected} />
-        )}
+        <ReviewQueue rows={visible} onSelect={setSelected} />
       </Card>
 
       <Card title="Policy Assistant">
