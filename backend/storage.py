@@ -5,11 +5,14 @@ Server-side only (keeps storage creds off the client and files out of the DB,
 consistent with the frontend -> gateway -> storage flow). Stdlib only.
 """
 
+import logging
 import urllib.error
 import urllib.request
 from urllib.parse import quote
 
 import config
+
+_log = logging.getLogger(__name__)
 
 
 class StorageError(Exception):
@@ -38,9 +41,12 @@ def upload_object(path: str, data: bytes, content_type: str) -> str:
         with urllib.request.urlopen(req, timeout=120):
             pass
     except urllib.error.HTTPError as e:
-        body = e.read().decode("utf-8", "ignore")[:200]
-        raise StorageError(f"upload failed: HTTP {e.code} {body}") from e
+        # Log the storage detail server-side; don't leak it to the client.
+        detail = e.read().decode("utf-8", "ignore")[:500]
+        _log.warning("storage upload failed: HTTP %s %s", e.code, detail)
+        raise StorageError("upload failed") from e
     except urllib.error.URLError as e:
-        raise StorageError(f"storage unreachable: {e.reason}") from e
+        _log.warning("storage unreachable: %s", e.reason)
+        raise StorageError("storage unavailable") from e
 
     return path

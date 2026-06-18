@@ -7,6 +7,12 @@ Asset upload routes.
 
 The member id namespaces the file; the record type scales to immunization,
 dental, vision, etc. and lets a provider list one member's records by prefix.
+
+SECURITY — mock-auth phase: like the other routes, this endpoint has no
+authentication. member_id is taken from the request, not a verified session,
+so the regex blocks path traversal but NOT ownership (any caller can write to
+any member's namespace). TODO before real PHI: derive member_id from the
+authenticated user (Keycloak) and/or authorize provider access.
 """
 
 import re
@@ -47,7 +53,9 @@ def _sniff(data: bytes) -> Optional[Tuple[str, str]]:
 @bp.post("/<record_type>")
 def upload(record_type: str) -> Tuple[Response, int]:
     # Cap body size for this route only (a global MAX_CONTENT_LENGTH would also
-    # throttle policy-doc ingest). Enforced when request.files is parsed below.
+    # throttle policy-doc ingest). Per-request max_content_length is honored on
+    # Werkzeug >= 2.3 (pinned to 3.x here) and enforced while request.files is
+    # parsed below — so an oversized body is rejected before it's read.
     request.max_content_length = config.MAX_UPLOAD_BYTES
     if record_type not in _RECORD_TYPES:
         return jsonify({"error": f"unknown record type: {record_type}"}), 404
@@ -57,7 +65,9 @@ def upload(record_type: str) -> Tuple[Response, int]:
     if not _MEMBER_ID.match(member_id):
         return jsonify({"error": "invalid member_id"}), 400
 
-    # MAX_CONTENT_LENGTH (app config) already rejected oversized bodies pre-read.
+    # request.max_content_length (set above) makes Werkzeug raise 413 here if the
+    # body is over the cap, so this read won't buffer an oversized payload. The
+    # len() check is a belt-and-suspenders backstop.
     data = request.files["file"].read()
     if not data:
         return jsonify({"error": "empty file"}), 400
