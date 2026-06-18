@@ -36,9 +36,6 @@ export function LoadingScreen({
         <p className={`${compact ? 'text-base' : 'text-xl'} font-semibold text-ink`}>
           {message}
         </p>
-        <p className="font-mono text-[11px] uppercase tracking-[0.28em] text-accent">
-          Turn is left home
-        </p>
         <p className="max-w-md text-sm text-muted">{detail}</p>
       </div>
     </div>
