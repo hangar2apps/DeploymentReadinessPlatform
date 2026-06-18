@@ -5,7 +5,7 @@ Submitting an assessment scores it and runs the red-flag rule engine (see rules.
 """
 
 import json
-from typing import Any, Tuple
+from typing import Any, Optional, Tuple
 from uuid import UUID
 from flask import Blueprint, request, jsonify
 from flask.wrappers import Response
@@ -92,6 +92,46 @@ def _flags_for(assessment_id: str) -> list[RealDictRow]:
     )
 
 
+def _comparison_for(assessment: dict) -> Optional[dict]:
+    """
+    Pre→Post score comparison for a POST assessment (else None).
+
+    Pulls the member's most recent SCORED PRE assessment as the baseline and
+    returns the pre scores plus post-minus-pre deltas, so the provider can see
+    what changed over the deployment. Returns None when the assessment isn't a
+    POST or the member has no pre-deployment baseline.
+    """
+    if assessment.get("type") != "POST":
+        return None
+
+    pre = db.query_one(
+        """
+        SELECT id, phq9_score, pcl5_score, submitted_at
+        FROM assessments
+        WHERE service_member_id = %s
+          AND type = 'PRE'
+          AND phq9_score IS NOT NULL
+        ORDER BY submitted_at DESC NULLS LAST, created_at DESC
+        LIMIT 1
+        """,
+        (assessment["service_member_id"],),
+    )
+    if not pre:
+        return None
+
+    def delta(post_v, pre_v):
+        return (post_v - pre_v) if (post_v is not None and pre_v is not None) else None
+
+    return {
+        "pre_assessment_id": str(pre["id"]),
+        "pre_submitted_at": pre["submitted_at"],
+        "pre_phq9_score": pre["phq9_score"],
+        "pre_pcl5_score": pre["pcl5_score"],
+        "phq9_delta": delta(assessment.get("phq9_score"), pre["phq9_score"]),
+        "pcl5_delta": delta(assessment.get("pcl5_score"), pre["pcl5_score"]),
+    }
+
+
 def _reason_from_referral_type(referral_type):
     """Normalize referral categories to the commander-dashboard display values."""
     mapping = {
@@ -174,7 +214,10 @@ def get_assessment(assessment_id: UUID) -> Tuple[Response, int]:
     if not row:
         return jsonify({"error": "assessment not found"}), 404
     row["red_flags"] = _flags_for(str(assessment_id))
-    return jsonify(_shape(dict(row))), 200
+    shaped = _shape(dict(row))
+    # POST assessments carry a pre-deployment comparison (None when no baseline).
+    shaped["comparison"] = _comparison_for(dict(row))
+    return jsonify(shaped), 200
 
 
 @bp.post("")

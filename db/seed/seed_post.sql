@@ -37,10 +37,13 @@
 
 BEGIN;
 
--- ---- Idempotency: drop the POST rows this script owns ----------------------
--- red_flags has no ON DELETE CASCADE, so clear the children first.
-DELETE FROM red_flags  WHERE assessment_id::text LIKE 'bbbbbbbb-%';
-DELETE FROM assessments WHERE id::text          LIKE 'bbbbbbbb-%';
+-- ---- Idempotency: drop the rows this script owns ---------------------------
+-- 'bbbbbbbb-…' = POST assessments, 'cccccccc-…' = the PRE baselines added for
+-- the new soldiers. red_flags has no ON DELETE CASCADE, so clear children first.
+DELETE FROM red_flags
+  WHERE assessment_id::text LIKE 'bbbbbbbb-%' OR assessment_id::text LIKE 'cccccccc-%';
+DELETE FROM assessments
+  WHERE id::text LIKE 'bbbbbbbb-%' OR id::text LIKE 'cccccccc-%';
 
 -- ---- New service members (the three not present in the base seed) ----------
 -- deployable reflects their POST flags: Okonkwo (PHQ-9 11 -> HIGH) is
@@ -61,7 +64,7 @@ ON CONFLICT (edipi) DO UPDATE
 -- Demo emails for the soldiers added above (seed.sql already set them for the
 -- base roster; this catches the newly inserted ones).
 UPDATE service_members
-SET email = lower(first_name) || '.' || lower(last_name) || '@example.army.mil'
+SET email = 'admin@hangar2apps.com'
 WHERE email IS NULL;
 
 -- ---- POST assessments ------------------------------------------------------
@@ -102,7 +105,23 @@ FROM (
   -- 6. SSG Harrington (B CO) — SUBMITTED, wounded (minor shrapnel), TBI screen +.
   ('bbbbbbbb-bbbb-bbbb-bbbb-000000000006','6000000003','POST','SUBMITTED',
     '{"blast_exposure":true,"blast_events":1,"wounded":true,"wound_detail":"shrapnel, minor","tinnitus":true,"tbi_screen_positive":true,"new_medication":false,"phq9_q9":0,"last_pha_date":"2026-05-17"}',6,22,
-    '2026-06-12 11:10:00+00',NULL,NULL,NULL,NULL)
+    '2026-06-12 11:10:00+00',NULL,NULL,NULL,NULL),
+
+  -- PRE-deployment baselines for the three new soldiers, so their POST detail
+  -- shows a real pre->post comparison (issue 24). Dated before deployment;
+  -- certified pre-deployment. Deltas: Okonkwo deteriorates (red), Williams
+  -- improves (green), Harrington mild increase (yellow).
+  ('cccccccc-cccc-cccc-cccc-000000000001','6000000001','PRE','CERTIFIED',
+    '{"dental_class":1,"immunizations_current":true,"pregnancy":false,"new_medication":false,"last_pha_date":"2026-01-10"}',4,10,
+    '2026-05-10 08:00:00+00','2026-05-12 10:00:00+00','1000000002',NULL,NULL),
+
+  ('cccccccc-cccc-cccc-cccc-000000000002','6000000002','PRE','CERTIFIED',
+    '{"dental_class":1,"immunizations_current":true,"pregnancy":false,"new_medication":false,"last_pha_date":"2026-01-15"}',5,14,
+    '2026-05-09 08:00:00+00','2026-05-11 10:00:00+00','1000000002',NULL,NULL),
+
+  ('cccccccc-cccc-cccc-cccc-000000000003','6000000003','PRE','CERTIFIED',
+    '{"dental_class":1,"immunizations_current":true,"pregnancy":false,"new_medication":false,"last_pha_date":"2026-01-20"}',4,18,
+    '2026-05-08 08:00:00+00','2026-05-10 10:00:00+00','1000000002',NULL,NULL)
 ) AS v(id, edipi, type, status, responses, phq9_score, pcl5_score, submitted_at, certified_at, certifier_edipi, referral_type, referral_notes)
 JOIN service_members sm ON sm.edipi = v.edipi
 LEFT JOIN service_members c ON c.edipi = v.certifier_edipi;

@@ -211,8 +211,11 @@ def send_referral_notification(member: dict, assessment: dict) -> bool:
 
 def send_certification_notification(member: dict, assessment: dict) -> bool:
     """
-    Notify a service member that their provider has certified them as deployable.
-    Returns True if the email was sent.
+    Notify a service member that their provider reviewed their assessment with no
+    referral needed. The wording adapts to the form: a PRE (DD 2795) is a
+    deployability clearance ("medically deployable"); a POST (DD 2796) or PDHRA
+    (DD 2900) is a post-deployment review ("no follow-up needed"). Returns True
+    if the email was sent.
     """
     email = member.get("email")
     if not email:
@@ -226,24 +229,44 @@ def send_certification_notification(member: dict, assessment: dict) -> bool:
         f"{member.get('rank', '')} {member.get('first_name', '')} {member.get('last_name', '')}".strip()
     )
 
+    is_post = assessment.get("type") in ("POST", "PDHRA")
+    if is_post:
+        subject = "[DRP] Post-Deployment Health Assessment Reviewed"
+        heading = "Post-Deployment Health Assessment Reviewed"
+        lead = (
+            "Your provider has <strong>reviewed</strong> your post-deployment health "
+            "assessment and found no issues requiring a referral at this time."
+        )
+        status_label = "Reviewed — No Referral Needed"
+        followup = (
+            "No further action is required. If new symptoms develop or your health "
+            "status changes, contact your unit&#39;s medical provider."
+        )
+    else:
+        subject = "[DRP] Deployment Health Assessment Certified"
+        heading = "Deployment Health Assessment Certified"
+        lead = (
+            "Your provider has reviewed and <strong>certified</strong> your deployment "
+            "health assessment. You are currently <strong>medically deployable</strong>."
+        )
+        status_label = "Deployable"
+        followup = (
+            "No further action is required at this time. If your health status changes "
+            "before your unit&#39;s deployment date, notify your unit&#39;s medical provider."
+        )
+
     html = f"""
     <div style="font-family:Arial,sans-serif;max-width:600px;margin:0 auto;color:#1a1a1a">
       <div style="background:#1b3a6b;padding:20px 24px">
-        <h1 style="color:#fff;margin:0;font-size:20px">Deployment Health Assessment Certified</h1>
+        <h1 style="color:#fff;margin:0;font-size:20px">{heading}</h1>
       </div>
       <div style="padding:24px">
         <p>Dear {name},</p>
-        <p>
-          Your provider has reviewed and <strong>certified</strong> your deployment
-          health assessment. You are currently <strong>medically deployable</strong>.
-        </p>
+        <p>{lead}</p>
         <div style="background:#e6f4ea;border-left:4px solid #2e7d32;padding:12px 16px;margin:16px 0;border-radius:4px">
-          <strong>Status:</strong> Deployable
+          <strong>Status:</strong> {status_label}
         </div>
-        <p>
-          No further action is required at this time. If your health status changes
-          before your unit&#39;s deployment date, notify your unit&#39;s medical provider.
-        </p>
+        <p>{followup}</p>
         <p>
           Log in to the Deployment Readiness Platform to view your assessment details.
         </p>
@@ -254,4 +277,4 @@ def send_certification_notification(member: dict, assessment: dict) -> bool:
       </div>
     </div>
     """
-    return _send(email, "[DRP] Deployment Health Assessment Certified", html)
+    return _send(email, subject, html)
