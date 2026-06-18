@@ -245,6 +245,14 @@ def certify(assessment_id: UUID) -> Tuple[Response, int]:
 
     body = request.get_json(silent=True) or {}
 
+    # Block certification while any HIGH flag on this assessment is unresolved.
+    high_flags = db.query(
+        "SELECT id FROM red_flags WHERE assessment_id = %s AND resolved_at IS NULL AND severity = 'HIGH'",
+        (str(assessment_id),),
+    )
+    if high_flags:
+        return jsonify({"error": "Cannot certify: assessment has unresolved HIGH red flags"}), 409
+
     # Status update, flag resolution, and the deployability recompute run in one
     # transaction so a partial failure can't leave the member's status and flags
     # inconsistent.
