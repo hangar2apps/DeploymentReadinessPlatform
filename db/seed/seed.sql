@@ -304,6 +304,21 @@ FROM (
   ('aaaaaaaa-aaaa-aaaa-aaaa-000000000016','NEW_MEDICATION','LOW','responses.new_medication == true','New medication started — provider review recommended')
 ) AS v(assessment_id, type, severity, rule_fired, message);
 
+-- ----------------------------------------------------------------------------
+-- Fake emails — one per service member, derived from name + EDIPI.
+-- Format: firstname.lastname.edipi@army.mil (all lowercase).
+-- Change to real addresses before going live.
+-- ----------------------------------------------------------------------------
+UPDATE service_members
+SET email = lower(first_name) || '.' || lower(last_name) || '.' || edipi || '@army.mil';
+
+-- Sample deployment dates — 90 days from a representative "today" so the
+-- scheduler and manual blast endpoint work out of the box against seed data.
+-- Adjust the dates to match your actual demo / test window.
+UPDATE units
+SET deployment_date = CURRENT_DATE + INTERVAL '90 days'
+WHERE short_name IN ('A CO', 'B CO');
+
 COMMIT;
 
 -- ============================================================================
