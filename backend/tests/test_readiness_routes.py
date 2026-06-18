@@ -4,6 +4,7 @@ These tests mock the DB layer so they verify route behavior and response shapes
 without requiring a live Supabase connection.
 """
 
+import contextlib
 from datetime import date as real_date
 from decimal import Decimal
 from unittest.mock import patch
@@ -11,6 +12,36 @@ from unittest.mock import patch
 import pytest
 
 from app import create_app
+
+
+def _recording_transaction(calls, assessment_row, remaining_row=None):
+    """db.transaction() stand-in for certify/refer tests.
+
+    Records each (sql, params) into `calls`, returns `assessment_row` for the
+    assessment UPDATE...RETURNING and `remaining_row` for the remaining-HIGH-flag
+    SELECT (certify only).
+    """
+
+    class _Cur:
+        def __init__(self):
+            self._sql = ""
+
+        def execute(self, sql, params=None):
+            calls.append((sql, params))
+            self._sql = sql
+
+        def fetchone(self):
+            if "UPDATE assessments" in self._sql:
+                return assessment_row
+            if "red_flags rf" in self._sql:
+                return remaining_row
+            return None
+
+    @contextlib.contextmanager
+    def _cm():
+        yield _Cur()
+
+    return _cm
 
 
 @pytest.fixture
@@ -244,17 +275,11 @@ class TestAssessmentBehaviorChanges:
             "service_member_id": "member-1",
             "status": "CERTIFIED",
         }
-        execute_calls = []
+        calls = []
 
-        def execute_side_effect(sql, params=None, returning=True):
-            execute_calls.append((sql, params, returning))
-            if "UPDATE assessments" in sql:
-                return assessment_row
-            return None
-
-        with patch("blueprints.assessments.db.execute", side_effect=execute_side_effect), patch(
-            "blueprints.assessments.db.query_one",
-            return_value={"type": "DENTAL_CLASS_3"},
+        with patch(
+            "blueprints.assessments.db.transaction",
+            _recording_transaction(calls, assessment_row, {"type": "DENTAL_CLASS_3"}),
         ):
             response = client.patch(
                 "/api/assessments/00000000-0000-0000-0000-000000000001/certify",
@@ -263,7 +288,7 @@ class TestAssessmentBehaviorChanges:
 
         assert response.status_code == 200
         service_member_update = next(
-            call for call in execute_calls if "UPDATE service_members SET deployable" in call[0]
+            call for call in calls if "UPDATE service_members SET deployable" in call[0]
         )
         assert service_member_update[1] == (False, "Dental", "member-1")
 
@@ -273,17 +298,11 @@ class TestAssessmentBehaviorChanges:
             "service_member_id": "member-1",
             "status": "CERTIFIED",
         }
-        execute_calls = []
+        calls = []
 
-        def execute_side_effect(sql, params=None, returning=True):
-            execute_calls.append((sql, params, returning))
-            if "UPDATE assessments" in sql:
-                return assessment_row
-            return None
-
-        with patch("blueprints.assessments.db.execute", side_effect=execute_side_effect), patch(
-            "blueprints.assessments.db.query_one",
-            return_value=None,
+        with patch(
+            "blueprints.assessments.db.transaction",
+            _recording_transaction(calls, assessment_row, None),
         ):
             response = client.patch(
                 "/api/assessments/00000000-0000-0000-0000-000000000001/certify",
@@ -292,7 +311,7 @@ class TestAssessmentBehaviorChanges:
 
         assert response.status_code == 200
         service_member_update = next(
-            call for call in execute_calls if "UPDATE service_members SET deployable" in call[0]
+            call for call in calls if "UPDATE service_members SET deployable" in call[0]
         )
         assert service_member_update[1] == (True, None, "member-1")
 
@@ -312,15 +331,12 @@ class TestAssessmentBehaviorChanges:
             "status": "REFERRED",
             "referral_type": referral_type,
         }
-        execute_calls = []
+        calls = []
 
-        def execute_side_effect(sql, params=None, returning=True):
-            execute_calls.append((sql, params, returning))
-            if "UPDATE assessments" in sql:
-                return assessment_row
-            return None
-
-        with patch("blueprints.assessments.db.execute", side_effect=execute_side_effect):
+        with patch(
+            "blueprints.assessments.db.transaction",
+            _recording_transaction(calls, assessment_row),
+        ):
             response = client.patch(
                 "/api/assessments/00000000-0000-0000-0000-000000000001/refer",
                 json={"referral_type": referral_type, "referral_notes": "note"},
@@ -328,6 +344,6 @@ class TestAssessmentBehaviorChanges:
 
         assert response.status_code == 200
         service_member_update = next(
-            call for call in execute_calls if "UPDATE service_members SET deployable" in call[0]
+            call for call in calls if "UPDATE service_members SET deployable" in call[0]
         )
         assert service_member_update[1] == (expected_reason, "member-1")

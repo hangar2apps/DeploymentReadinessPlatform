@@ -29,11 +29,16 @@ _CHECKLIST_ITEMS = [
 ]
 
 
-def _send(to: str, subject: str, html: str) -> None:
-    """Low-level send. Falls back to a log line when no API key is configured."""
+def _send(to: str, subject: str, html: str) -> bool:
+    """
+    Low-level send. Returns True only if SendGrid accepted the message (2xx).
+
+    Returns False (and logs) when no API key is configured or the send fails, so
+    callers can report real delivery status instead of assuming success.
+    """
     if not _API_KEY:
         log.warning("SENDGRID_API_KEY not set — skipping send to %s: %s", to, subject)
-        return
+        return False
 
     try:
         import sendgrid  # type: ignore
@@ -48,8 +53,10 @@ def _send(to: str, subject: str, html: str) -> None:
         )
         resp = sg.send(msg)
         log.info("SendGrid accepted %s -> %s (status %s)", subject, to, resp.status_code)
+        return 200 <= resp.status_code < 300
     except Exception:
         log.exception("SendGrid send failed to %s", to)
+        return False
 
 
 # ---------------------------------------------------------------------------
@@ -132,10 +139,10 @@ def send_deployment_blast(
 # Provider-triggered referral notification
 # ---------------------------------------------------------------------------
 
-def send_referral_notification(member: dict, assessment: dict) -> None:
+def send_referral_notification(member: dict, assessment: dict) -> bool:
     """
     Notify a service member that their provider has flagged an incomplete or
-    referred item on their assessment.
+    referred item on their assessment. Returns True if the email was sent.
     """
     email = member.get("email")
     if not email:
@@ -143,7 +150,7 @@ def send_referral_notification(member: dict, assessment: dict) -> None:
             "No email for %s %s (id %s) — skipping",
             member.get("rank"), member.get("last_name"), member.get("id"),
         )
-        return
+        return False
 
     name = escape(
         f"{member.get('rank', '')} {member.get('first_name', '')} {member.get('last_name', '')}".strip()
@@ -195,4 +202,56 @@ def send_referral_notification(member: dict, assessment: dict) -> None:
       </div>
     </div>
     """
-    _send(email, f"[DRP] Action Required: {type_display} Referral", html)
+    return _send(email, f"[DRP] Action Required: {type_display} Referral", html)
+
+
+# ---------------------------------------------------------------------------
+# Provider-triggered certification notification
+# ---------------------------------------------------------------------------
+
+def send_certification_notification(member: dict, assessment: dict) -> bool:
+    """
+    Notify a service member that their provider has certified them as deployable.
+    Returns True if the email was sent.
+    """
+    email = member.get("email")
+    if not email:
+        log.warning(
+            "No email for %s %s (id %s) — skipping",
+            member.get("rank"), member.get("last_name"), member.get("id"),
+        )
+        return False
+
+    name = escape(
+        f"{member.get('rank', '')} {member.get('first_name', '')} {member.get('last_name', '')}".strip()
+    )
+
+    html = f"""
+    <div style="font-family:Arial,sans-serif;max-width:600px;margin:0 auto;color:#1a1a1a">
+      <div style="background:#1b3a6b;padding:20px 24px">
+        <h1 style="color:#fff;margin:0;font-size:20px">Deployment Health Assessment Certified</h1>
+      </div>
+      <div style="padding:24px">
+        <p>Dear {name},</p>
+        <p>
+          Your provider has reviewed and <strong>certified</strong> your deployment
+          health assessment. You are currently <strong>medically deployable</strong>.
+        </p>
+        <div style="background:#e6f4ea;border-left:4px solid #2e7d32;padding:12px 16px;margin:16px 0;border-radius:4px">
+          <strong>Status:</strong> Deployable
+        </div>
+        <p>
+          No further action is required at this time. If your health status changes
+          before your unit&#39;s deployment date, notify your unit&#39;s medical provider.
+        </p>
+        <p>
+          Log in to the Deployment Readiness Platform to view your assessment details.
+        </p>
+        <p style="margin-top:32px;font-size:12px;color:#666">
+          This is an automated message from the Deployment Readiness Platform.
+          Do not reply directly to this email.
+        </p>
+      </div>
+    </div>
+    """
+    return _send(email, "[DRP] Deployment Health Assessment Certified", html)

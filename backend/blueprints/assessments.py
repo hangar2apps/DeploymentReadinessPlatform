@@ -13,9 +13,35 @@ from psycopg2.extras import RealDictRow
 
 
 import db
+import email_service
 import rules
 
 bp = Blueprint("assessments", __name__, url_prefix="/api/assessments")
+
+
+def _notify_member(service_member_id: str, assessment: dict, kind: str) -> Tuple[bool, Any]:
+    """
+    Email the member about a certify/refer decision. Best-effort: returns
+    (sent, email) and never raises, so a delivery failure can't undo the
+    provider's decision (already committed by the caller). `kind` is
+    'certify' or 'refer'.
+    """
+    try:
+        member = db.query_one(
+            "SELECT sm.*, u.name AS unit_name "
+            "FROM service_members sm JOIN units u ON u.id = sm.unit_id "
+            "WHERE sm.id = %s",
+            (service_member_id,),
+        )
+        if not member or not member.get("email"):
+            return False, None
+        if kind == "certify":
+            sent = email_service.send_certification_notification(member=member, assessment=assessment)
+        else:
+            sent = email_service.send_referral_notification(member=member, assessment=assessment)
+        return bool(sent), member["email"]
+    except Exception:
+        return False, None
 
 
 _BASE_SELECT = """
@@ -78,9 +104,14 @@ def _reason_from_referral_type(referral_type):
     return str(referral_type).replace("_", " ").title()
 
 
-def _remaining_high_flag_reason(service_member_id):
-    """Return the category for any remaining unresolved HIGH flag, else None."""
-    row = db.query_one(
+def _remaining_high_flag_reason(cur, service_member_id):
+    """
+    Return the category for any remaining unresolved HIGH flag, else None.
+
+    Runs on the caller's transaction cursor so it sees flags resolved earlier in
+    the same transaction (otherwise it would read pre-resolve state).
+    """
+    cur.execute(
         """
         SELECT rf.type
         FROM red_flags rf
@@ -93,6 +124,7 @@ def _remaining_high_flag_reason(service_member_id):
         """,
         (service_member_id,),
     )
+    row = cur.fetchone()
     if not row:
         return None
     return rules._REASON_BY_TYPE.get(row["type"], "Medical")
@@ -212,39 +244,47 @@ def certify(assessment_id: UUID) -> Tuple[Response, int]:
     """
 
     body = request.get_json(silent=True) or {}
-    row = db.execute(
-        """
-        UPDATE assessments
-        SET status = 'CERTIFIED', certified_at = now(), certified_by = %s
-        WHERE id = %s
-        RETURNING *
-        """,
-        (body.get("certified_by"), str(assessment_id)),
-    )
+
+    # Status update, flag resolution, and the deployability recompute run in one
+    # transaction so a partial failure can't leave the member's status and flags
+    # inconsistent.
+    row = None
+    try:
+        with db.transaction() as cur:
+            cur.execute(
+                """
+                UPDATE assessments
+                SET status = 'CERTIFIED', certified_at = now(), certified_by = %s
+                WHERE id = %s
+                RETURNING *
+                """,
+                (body.get("certified_by"), str(assessment_id)),
+            )
+            row = cur.fetchone()
+            if row:
+                # Certification resolves this assessment's flags, but the member
+                # only becomes deployable again if no other unresolved HIGH flag
+                # remains.
+                cur.execute(
+                    "UPDATE red_flags SET resolved_at = now() "
+                    "WHERE assessment_id = %s AND resolved_at IS NULL",
+                    (str(assessment_id),),
+                )
+                remaining_reason = _remaining_high_flag_reason(cur, row["service_member_id"])
+                cur.execute(
+                    "UPDATE service_members SET deployable = %s, deployable_reason = %s "
+                    "WHERE id = %s",
+                    (remaining_reason is None, remaining_reason, row["service_member_id"]),
+                )
+    except Exception:
+        return jsonify({"error": "failed to certify assessment"}), 500
+
     if not row:
         return jsonify({"error": "assessment not found"}), 404
 
-    # Certification resolves this assessment's flags, but the member only
-    # becomes deployable again if no other unresolved HIGH flag remains.
-    db.execute(
-        "UPDATE red_flags SET resolved_at = now() "
-        "WHERE assessment_id = %s AND resolved_at IS NULL",
-        (str(assessment_id),),
-        returning=False,
-    )
-
-    remaining_reason = _remaining_high_flag_reason(row["service_member_id"])
-    db.execute(
-        "UPDATE service_members SET deployable = %s, deployable_reason = %s "
-        "WHERE id = %s",
-        (
-            remaining_reason is None,
-            remaining_reason,
-            row["service_member_id"],
-        ),
-        returning=False,
-    )
-    return jsonify(row), 200
+    # Best-effort email — the certification is already committed regardless.
+    sent, email = _notify_member(row["service_member_id"], row, "certify")
+    return jsonify({**row, "notified": sent, "notified_to": email if sent else None}), 200
 
 
 @bp.patch("/<uuid:assessment_id>/refer")
@@ -261,25 +301,35 @@ def refer(assessment_id: UUID) -> Tuple[Response, int]:
     if not referral_type:
         return jsonify({"error": "referral_type is required"}), 400
 
-    row = db.execute(
-        """
-        UPDATE assessments
-        SET status = 'REFERRED', referral_type = %s, referral_notes = %s
-        WHERE id = %s
-        RETURNING *
-        """,
-        (referral_type, body.get("referral_notes"), str(assessment_id)),
-    )
+    # Assessment status + member deployability update together in one transaction.
+    row = None
+    try:
+        with db.transaction() as cur:
+            cur.execute(
+                """
+                UPDATE assessments
+                SET status = 'REFERRED', referral_type = %s, referral_notes = %s
+                WHERE id = %s
+                RETURNING *
+                """,
+                (referral_type, body.get("referral_notes"), str(assessment_id)),
+            )
+            row = cur.fetchone()
+            if row:
+                cur.execute(
+                    "UPDATE service_members SET deployable = false, deployable_reason = %s "
+                    "WHERE id = %s",
+                    (_reason_from_referral_type(referral_type), row["service_member_id"]),
+                )
+    except Exception:
+        return jsonify({"error": "failed to refer assessment"}), 500
+
     if not row:
         return jsonify({"error": "assessment not found"}), 404
 
-    db.execute(
-        "UPDATE service_members SET deployable = false, deployable_reason = %s "
-        "WHERE id = %s",
-        (_reason_from_referral_type(referral_type), row["service_member_id"]),
-        returning=False,
-    )
-    return jsonify(row), 200
+    # Best-effort email — the referral is already committed regardless.
+    sent, email = _notify_member(row["service_member_id"], row, "refer")
+    return jsonify({**row, "notified": sent, "notified_to": email if sent else None}), 200
 
 
 def _run_rule_engine(

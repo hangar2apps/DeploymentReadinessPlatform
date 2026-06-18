@@ -92,7 +92,13 @@ def notify_referral(assessment_id: UUID) -> Tuple[Response, int]:
     if not member.get("email"):
         return jsonify({"error": "service member has no email address on record"}), 422
 
-    email_service.send_referral_notification(member=member, assessment=assessment)
+    sent = email_service.send_referral_notification(member=member, assessment=assessment)
+    if not sent:
+        # Don't record the timestamp on failure, so the provider can retry once
+        # the email service is fixed (a recorded send would 409 the next attempt).
+        return jsonify({
+            "error": "email delivery failed — check the email service configuration",
+        }), 502
 
     db.execute(
         "UPDATE assessments SET referral_notified_at = %s WHERE id = %s",
