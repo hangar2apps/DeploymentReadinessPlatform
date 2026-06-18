@@ -1,0 +1,23 @@
+# Build context is this directory (see backend/Dockerfile). A .dockerignore only takes effect at the context root, so every exclusion for backend/ and frontend/ lives here — subdirectory .dockerignore files would be ignored.
+
+# Python
+**/.venv
+**/__pycache__
+**/*.pyc
+**/.pytest_cache
+
+# Tests are not needed in the runtime image
+**/tests
+
+# Node — reinstalled in the image from package-lock.json; dist rebuilt by vite
+**/node_modules
+**/dist
+
+# Local secrets and OS / editor cruft
+**/.env
+**/.env.local
+**/.DS_Store
+
+# VCS and docs that don't belong in the image
+.git
+**/README.md
