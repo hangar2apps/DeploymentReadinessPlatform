@@ -47,6 +47,28 @@ def get_conn() -> Generator[connection, None, None]:
         pool.putconn(conn)
 
 
+@contextlib.contextmanager
+def transaction() -> Generator[RealDictCursor, None, None]:
+    """
+    Run several statements in ONE transaction. Yields a RealDictCursor; commits
+    on clean exit, rolls back on any exception.
+
+    Use when multiple writes must succeed or fail together — e.g. inserting an
+    assessment, superseding prior red flags, inserting new ones, and updating
+    deployability. Doing those as separate execute() calls would let a partial
+    failure leave a soldier mid-update (flags cleared but deployability stale).
+    """
+
+    with get_conn() as conn:
+        try:
+            with conn.cursor(cursor_factory=RealDictCursor) as cur:
+                yield cur
+            conn.commit()
+        except Exception:
+            conn.rollback()
+            raise
+
+
 def query(
     sql: str,
     params: Optional[Sequence[Any]] = None,
