@@ -7,6 +7,7 @@ yarn-error.log*
 lerna-debug.log*
 
 .DS_Store
+bundle/uds-config.yaml
 
 # Diagnostic reports (https://nodejs.org/api/report.html)
 report.[0-9]*.[0-9]*.[0-9]*.[0-9]*.json
@@ -124,9 +125,6 @@ dist
 # TernJS port file
 .tern-port
 
-# Stores VSCode versions used for testing VSCode extensions
-.vscode-test
-
 # yarn v3
 .pnp.*
 .yarn/*
@@ -141,7 +139,13 @@ vite.config.js.timestamp-*
 vite.config.ts.timestamp-*
 
 
-# Python / rag-service
+# Python
 .venv/
 __pycache__/
 *.pyc
+
+# Local OCI image archive built by `uds run build` and consumed by zarf.yaml's imageArchives
+images/*.oci.tar
+
+# Built Zarf package
+zarf-package-*.tar.zst

@@ -1,17 +1,9 @@
-# UDS tasks for local DRP development.
-#
-# Run with the maru-runner bundled in the UDS CLI:
-#   uds run backend      # start the Flask REST API on :3000
-#
-# The policy assistant's RAG pipeline runs in-process in the backend
-# (see backend/rag.py) — there is no separate service to start.
-
 variables:
-  - name: BACKEND_PORT
-    default: "3000"
+  - name: IMAGE
+    default: "ghcr.io/defenseunicorns/deployment-readiness-platform:0.1.0"
 
 tasks:
-  - name: backend
+  - name: local-backend
     description: "Start the Flask REST API on :${BACKEND_PORT}"
     actions:
       - description: "Sync the uv environment, then run the app"
@@ -20,10 +12,20 @@ tasks:
           uv sync
           uv run python app.py
 
-  - name: backend-build
-    description: "Build the combined app image (Flask API + built React SPA)"
+  - name: build
+    description: "Build the DRP container image (Flask API + built React SPA) from src/backend/Dockerfile"
     actions:
-      - description: "Build the Docker image from the DRP dir as context"
-        # Context is the DeploymentReadinessPlatform dir (this dir) so the build can see both backend/ and frontend/; the Dockerfile lives in backend/.
-        # DOCKER_BUILDKIT=1 enables BuildKit, which the Dockerfile's RUN --mount cache/bind mounts require.
-        cmd: DOCKER_BUILDKIT=1 docker build -f backend/Dockerfile -t drp .
+      # Export the build directly to a local OCI-layout archive instead of loading it into the docker daemon. zarf.yaml references this archive via `imageArchives`, so the image never needs to be pushed to (or pulled from) ghcr.io. buildx provides BuildKit, which the Dockerfile's RUN --mount cache/bind mounts require, and `type=oci` writes the layout Zarf wants.
+      # TODO change this to use an OCI registry when the image is pushed there
+      - cmd: docker buildx build -f "backend/Dockerfile" -t "${IMAGE}" --output "type=oci,dest=images/drp-0.1.0.oci.tar" .
+      - cmd: uds zarf package create . --no-color --confirm
+
+  - name: cluster
+    description: "Bring up a local k3d UDS Core slim-dev cluster"
+    actions:
+      - cmd: uds deploy k3d-core-slim-dev:latest --no-color --confirm
+
+  - name: deploy
+    description: "Deploy the built Zarf package to the local cluster"
+    actions:
+      - cmd: uds zarf package deploy zarf-package-deployment-readiness-platform-*.tar.zst --no-color --confirm

@@ -1,0 +1,5 @@
+packageName: deployment-readiness-platform
+gitHost: github
+llmTools:
+    - claude
+    - codex

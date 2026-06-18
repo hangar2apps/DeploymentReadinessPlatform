@@ -1,0 +1,6 @@
+apiVersion: v2
+name: drp
+description: "Deployment Readiness Platform — Flask API + React SPA (single image)"
+type: application
+version: 0.1.0
+appVersion: "0.1.0"
