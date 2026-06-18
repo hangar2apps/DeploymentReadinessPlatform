@@ -7,7 +7,6 @@ import { MedicalStep } from './steps/MedicalStep';
 import { DentalStep } from './steps/DentalStep';
 import { ImmunizationStep } from './steps/ImmunizationStep';
 import { ConcernsStep } from './steps/ConcernsStep';
-import { AttestationStep } from './steps/AttestationStep';
 import { ReviewStep } from './steps/ReviewStep';
 import { deploymentScreens } from './deployment';
 import {
@@ -144,24 +143,22 @@ export function buildSections({
       ],
     },
     {
-      key: 'attestation',
-      title: 'Attest',
-      screens: [
-        {
-          key: 'attestation',
-          done: attestationDone(r),
-          node: <AttestationStep r={r} set={set} />,
-        },
-      ],
-    },
-    {
       key: 'review',
       title: 'Review',
       screens: [
         {
           key: 'review',
-          done: true,
-          node: <ReviewStep responses={r} photoName={photoName} />,
+          // Attestation now lives at the bottom of the review screen, so the
+          // form isn't complete (Submit stays disabled) until it's checked.
+          done: attestationDone(r),
+          node: (
+            <ReviewStep
+              responses={r}
+              photoName={photoName}
+              type={type}
+              set={set}
+            />
+          ),
         },
       ],
     },

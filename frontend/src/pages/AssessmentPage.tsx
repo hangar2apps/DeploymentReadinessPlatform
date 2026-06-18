@@ -23,16 +23,10 @@ import type {
   SectionDef,
   SetResponse,
 } from '../components/assessment/types';
-import { OptionGroup } from '../components/assessment/fields/OptionGroup';
 import { fullResponses, partialResponses } from '../lib/assessmentDev';
 
 type Status = Assessment['status'] | 'NOT_STARTED';
 type Phase = 'landing' | 'form' | 'submitted';
-
-const TYPE_OPTIONS: { value: AssessmentType; label: string }[] = [
-  { value: 'PRE', label: 'Pre-deployment' },
-  { value: 'POST', label: 'Post-deployment' },
-];
 
 export default function AssessmentPage() {
   const persona = usePersona();
@@ -169,7 +163,7 @@ export default function AssessmentPage() {
     }
   }
 
-  const { setSeed } = useDev();
+  const { setSeed, setTypeControl } = useDev();
 
   const devClean = useCallback(() => {
     setResponses({});
@@ -200,6 +194,12 @@ export default function AssessmentPage() {
     return () => setSeed(null);
   }, [setSeed, devClean, devPartial, devDone]);
 
+  useEffect(() => {
+    if (!import.meta.env.DEV) return;
+    setTypeControl({ value: type, set: setType });
+    return () => setTypeControl(null);
+  }, [setTypeControl, type]);
+
   let body;
 
   if (phase === 'landing') {
@@ -222,12 +222,6 @@ export default function AssessmentPage() {
             setPhase('form');
           }}
         />
-        <div className="flex flex-wrap items-center gap-3">
-          <span className="font-mono text-[11px] uppercase tracking-wider text-muted">
-            Assessment type
-          </span>
-          <OptionGroup options={TYPE_OPTIONS} value={type} onChange={setType} />
-        </div>
       </div>
     );
   } else if (phase === 'submitted') {
@@ -247,6 +241,9 @@ export default function AssessmentPage() {
     const section = current.section;
     const answerable = flat.filter((f) => f.screen.key !== 'review');
     const completed = answerable.filter((f) => f.screen.done).length;
+    // Submit requires every screen done (incl. attestation), so jump-nav can't
+    // skip required answers and submit incomplete.
+    const allDone = flat.every((f) => f.screen.done);
 
     body = (
       <div className="mx-auto max-w-2xl space-y-4">
@@ -305,9 +302,9 @@ export default function AssessmentPage() {
           {isLast ? (
             <button
               type="button"
-              disabled={submitting}
+              disabled={submitting || !allDone}
               onClick={handleSubmit}
-              className="rounded-md bg-accent px-5 py-2 text-sm font-semibold text-bg hover:opacity-90 disabled:opacity-50"
+              className="rounded-md bg-accent px-5 py-2 text-sm font-semibold text-bg hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-50"
             >
               {submitting ? 'Submitting…' : 'Submit assessment'}
             </button>
