@@ -95,11 +95,23 @@ export interface AssessmentListItem extends Assessment {
   flags: RedFlag[];
 }
 
+// Pre→Post score comparison, present on POST assessment detail (null if the
+// member has no pre-deployment baseline).
+export interface ScoreComparison {
+  pre_assessment_id: string;
+  pre_submitted_at: string | null;
+  pre_phq9_score: number | null;
+  pre_pcl5_score: number | null;
+  phq9_delta: number | null;
+  pcl5_delta: number | null;
+}
+
 // GET /api/assessments/:id — detail
 export interface AssessmentDetail extends Assessment {
   member: ServiceMember;
   unit: Unit;
   flags: RedFlag[];
+  comparison?: ScoreComparison | null;
 }
 
 // GET /api/readiness — rollup for a unit + its children

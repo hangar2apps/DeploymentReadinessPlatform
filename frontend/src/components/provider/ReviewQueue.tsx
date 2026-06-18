@@ -28,6 +28,13 @@ const TYPE_LABEL: Record<string, string> = {
   PDHRA: 'PDHRA',
 };
 
+// Distinct chip per assessment type so POST (the return-phase form) stands out.
+const TYPE_STYLE: Record<string, string> = {
+  PRE: 'border-border/60 text-muted',
+  POST: 'border-accent/40 bg-accent/10 text-accent',
+  PDHRA: 'border-sev-low/40 bg-sev-low/10 text-sev-low',
+};
+
 function matchesFilter(a: AssessmentListItem, filter: QueueFilter): boolean {
   switch (filter) {
     case 'RED_FLAG':
@@ -82,7 +89,11 @@ export function ReviewQueue({
       key: 'type',
       header: 'Type',
       render: (a) => (
-        <span className="font-mono text-xs text-muted">
+        <span
+          className={`inline-flex items-center rounded border px-1.5 py-0.5 font-mono text-[10px] font-medium uppercase tracking-wider ${
+            TYPE_STYLE[a.type] ?? 'border-border/60 text-muted'
+          }`}
+        >
           {TYPE_LABEL[a.type] ?? a.type}
         </span>
       ),

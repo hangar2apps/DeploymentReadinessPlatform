@@ -18,6 +18,7 @@ import {
 import { LoadingScreen } from '../ui/LoadingScreen';
 import { SeverityBadge, StatusBadge } from '../ui/Badge';
 import { ScreenerCard } from './ScreenerCard';
+import { ScoreComparisonPanel } from './ScoreComparisonPanel';
 import { relativeTime } from '../../lib/time';
 
 const TYPE_LABEL: Record<string, string> = {
@@ -101,6 +102,13 @@ export function AssessmentDetailDrawer({
   const currentStatus = a?.status ?? selected.status;
   const pending = currentStatus === 'SUBMITTED' || currentStatus === 'UNDER_REVIEW';
 
+  // Post-deployment forms (DD 2796 / DD 2900) aren't a deployability gate — the
+  // provider is screening a returned soldier for care, so the actions read as
+  // "clear / refer for care" rather than "deployable / non-deployable".
+  const isPostDeployment = selected.type === 'POST' || selected.type === 'PDHRA';
+  const certifyLabel = isPostDeployment ? 'Clear — No Referral' : 'Certify — Deployable';
+  const referLabel = isPostDeployment ? 'Refer for Care' : 'Refer — Non-Deployable';
+
   async function certify() {
     if (busy) return;
     setBusy(true);
@@ -108,9 +116,12 @@ export function AssessmentDetailDrawer({
     try {
       const res = await certifyAssessment(selected!.id);
       onResolved(selected!.id, 'CERTIFIED');
-      setConfirm({ heading: 'Certified — Deployable', to: res.notified_to ?? null });
+      setConfirm({
+        heading: isPostDeployment ? 'Cleared — No Referral' : 'Certified — Deployable',
+        to: res.notified_to ?? null,
+      });
     } catch {
-      setError('Could not certify. Check the gateway and try again.');
+      setError('Could not clear the assessment. Check the gateway and try again.');
     } finally {
       setBusy(false);
     }
@@ -126,7 +137,10 @@ export function AssessmentDetailDrawer({
         referral_notes: referNotes.trim(),
       });
       onResolved(selected!.id, 'REFERRED');
-      setConfirm({ heading: 'Referred — Non-Deployable', to: res.notified_to ?? null });
+      setConfirm({
+        heading: isPostDeployment ? 'Referred for Care' : 'Referred — Non-Deployable',
+        to: res.notified_to ?? null,
+      });
     } catch {
       setError('Could not refer. Check the gateway and try again.');
     } finally {
@@ -225,6 +239,16 @@ export function AssessmentDetailDrawer({
                 )}
               </section>
 
+              {/* Pre→Post comparison — POST assessments only. */}
+              {selected.type === 'POST' && (
+                <ScoreComparisonPanel
+                  comparison={a?.comparison}
+                  postPhq9={selected.phq9_score}
+                  postPcl5={selected.pcl5_score}
+                  responses={responses}
+                />
+              )}
+
               {/* Screeners */}
               <section className="grid grid-cols-1 gap-3 lg:grid-cols-2">
                 <ScreenerCard kind="phq9" score={selected.phq9_score} responses={responses} />
@@ -281,7 +305,7 @@ export function AssessmentDetailDrawer({
                   onClick={certify}
                   className="flex-1 rounded-md bg-ok px-3 py-2 text-sm font-medium text-bg disabled:cursor-not-allowed disabled:opacity-40"
                 >
-                  Certify — Deployable
+                  {certifyLabel}
                 </button>
                 <button
                   type="button"
@@ -289,7 +313,7 @@ export function AssessmentDetailDrawer({
                   onClick={() => setShowRefer(true)}
                   className="flex-1 rounded-md border border-danger px-3 py-2 text-sm font-medium text-danger transition-colors hover:bg-danger/10 disabled:opacity-40"
                 >
-                  Refer — Non-Deployable
+                  {referLabel}
                 </button>
               </div>
             ) : (
