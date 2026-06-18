@@ -214,6 +214,11 @@ export function referAssessment(id: string, input: ReferInput): Promise<Assessme
   return http(`/api/assessments/${id}/refer`, { method: 'PATCH', body: JSON.stringify(input) });
 }
 
+export function notifyReferral(id: string): Promise<{ sent: boolean; to: string }> {
+  if (USE_MOCKS) return mock({ sent: true, to: 'test.member@army.mil' });
+  return http(`/api/assessments/${id}/notify-referral`, { method: 'POST', body: '{}' });
+}
+
 // ---- Readiness --------------------------------------------------------------
 
 export function getReadiness(unitId?: string): Promise<ReadinessRollup> {
