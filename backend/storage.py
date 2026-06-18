@@ -23,7 +23,8 @@ def upload_object(path: str, data: bytes, content_type: str) -> str:
     """Upload bytes to {SUPABASE_BUCKET}/{path}; upserts. Returns the path."""
 
     if not config.SUPABASE_URL or not config.SUPABASE_SERVICE_ROLE_KEY:
-        raise StorageError("storage not configured (SUPABASE_URL / SERVICE_ROLE_KEY missing)")
+        _log.error("storage not configured: SUPABASE_URL / SERVICE_ROLE_KEY missing")
+        raise StorageError("storage unavailable")
 
     obj = quote(f"{config.SUPABASE_BUCKET}/{path}", safe="/")
     url = f"{config.SUPABASE_URL}/storage/v1/object/{obj}"
