@@ -1,4 +1,4 @@
-import { useRef, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import type { AssessmentResponses } from '../../../types/drp';
 import type { SetResponse } from '../types';
 import { Field } from '../fields/Field';
@@ -25,6 +25,11 @@ export function ImmunizationStep({
   const [uploading, setUploading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const inputRef = useRef<HTMLInputElement>(null);
+  // Latest immunizations answer, read inside the async upload callback.
+  const immunCurrent = useRef(r.immunizations_current);
+  useEffect(() => {
+    immunCurrent.current = r.immunizations_current;
+  }, [r.immunizations_current]);
 
   // Reset the native input so re-selecting the same file fires onChange again.
   const clearInput = () => {
@@ -52,6 +57,9 @@ export function ImmunizationStep({
     // member advances before the upload finishes.
     uploadImmunizationRecord(memberId, file)
       .then(({ path }) => {
+        // Switched to "immunizations current" mid-upload -> discard, so no
+        // record reference sticks to a "current" answer.
+        if (immunCurrent.current !== false) return;
         set('immunization_record_path', path);
         set('immunization_record_filename', file.name);
         onPhoto(file.name);
@@ -70,6 +78,7 @@ export function ImmunizationStep({
       <Field label="Are your immunizations current?">
         <YesNo
           value={r.immunizations_current as boolean | undefined}
+          disabled={uploading}
           onChange={(v) => {
             set('immunizations_current', v);
             // No record needed when current — drop any prior upload reference.
