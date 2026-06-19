@@ -339,7 +339,7 @@ export default function AssessmentPage() {
             }}
             className="rounded-md border border-border px-4 py-2 text-sm text-ink hover:border-muted"
           >
-            {step === 0 ? 'Save & exit' : 'Back'}
+            Back
           </button>
 
           {isLast ? (
