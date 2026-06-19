@@ -1,18 +1,18 @@
 # Deployment Readiness Platform (DRP)
 
-A unified pre- and post-deployment health assessment platform for military units. DRP replaces paper-based DD forms (2795, 2796, 2900) and fragmented legacy systems (EDHA, MHS Genesis, AHLTA) with a single digital workflow connecting service members, medical providers, and commanders.
+A unified pre- and post-deployment health assessment platform for military units. DRP digitizes the paper-based DD forms (2795, 2796, 2900) and the manual workflows around them — the EDHA web form, batched provider review, and Excel readiness roll-ups — into a single digital workflow connecting service members, medical providers, and commanders. DRP is a workflow and readiness-visibility layer, **not** a clinical system of record: it is designed to integrate with MHS Genesis (via FHIR), not replace it.
 
 ---
 
 ## What It Does
 
-Current DoD deployment health processes rely on paper forms, disconnected systems, and manual readiness roll-ups. Red flags are caught late, PDHRA compliance is poor, and commanders lack real-time unit readiness visibility. DRP solves this with three integrated user surfaces:
+Today the process loses signal at every step: screenings are rushed so red flags surface late, post-deployment re-assessment (PDHRA) completion lags once units disperse, and commanders have no real-time view of unit readiness. DRP closes those gaps through three integrated surfaces:
 
 | Surface | Who Uses It | Purpose |
 |---------|-------------|---------|
-| **Service Member** | Enlisted personnel | Submit pre/post-deployment health assessments (PHQ-9, PCL-5, dental, immunizations), upload documents, track status |
-| **Medical Provider** | Physicians, PA/NPs | Review flagged assessments, certify or refer soldiers, consult policy assistant |
-| **Commander** | Battalion / Company COs | Real-time unit readiness KPIs, per-company drill-down, 90-day trend, deployment window tracking, data-chat |
+| **Service Member** | All personnel (enlisted + officers) | Submit pre/post-deployment health assessments (PHQ-9, PCL-5, dental, immunizations), upload documents, track status |
+| **Medical Provider** | Physicians, PA/NPs | Review flagged assessments, certify or refer service members, consult policy assistant |
+| **Commander** | Unit commanders | Real-time unit readiness KPIs, per-unit drill-down, 90-day trend, deployment window tracking, data-chat |
 
 Key capabilities:
 - **Auto-scoring** — PHQ-9 (depression) and PCL-5 (PTSD) screeners scored on submission
@@ -26,30 +26,33 @@ Key capabilities:
 ## Architecture
 
 ```
-┌─────────────────────────────────────────────────────────┐
-│                     Browser / Client                    │
-│           React 19 + TypeScript + Tailwind CSS          │
-│                  Vite dev server (:5173)                 │
-└─────────────────────────┬───────────────────────────────┘
-                          │ HTTP
-┌─────────────────────────▼───────────────────────────────┐
-│              Flask API Gateway (:3000)                  │
-│   Blueprints: assessments, service_members, units,      │
-│   readiness, chat, documents, notifications, uploads    │
-│   + Serves built SPA from static/ in production        │
-└──────────┬──────────────────────────┬───────────────────┘
-           │                          │
-┌──────────▼──────────┐   ┌──────────▼──────────────────┐
-│  Supabase Postgres   │   │         OpenAI API           │
-│  + pgvector          │   │  GPT-4o-mini (chat)          │
-│  Units, Members,     │   │  text-embedding-3-small      │
-│  Assessments,        │   │  (RAG embeddings)            │
-│  Red Flags,          │   └─────────────────────────────┘
-│  Document Chunks     │
-└─────────────────────┘
+┌──────────────────────────────────────────────────────────────┐
+│                       Browser / Client                       │
+│             React 19 + TypeScript + Tailwind CSS             │
+│                    Vite dev server (:5173)                   │
+└────────────────────────────┬─────────────────────────────────┘
+                             │ HTTP  (CORS-enabled in dev)
+┌────────────────────────────▼─────────────────────────────────┐
+│                    Flask API Gateway (:3000)                 │
+│  Blueprints: assessments, service_members, units, readiness, │
+│  chat, documents, notifications, uploads                     │
+│  In-process: RAG pipeline + APScheduler (PDHRA reminders)    │
+│  + Serves built SPA from static/ in production               │
+└──────┬───────────────┬──────────────┬──────────────┬─────────┘
+       │               │              │              │
+┌──────▼───────┐ ┌─────▼────────┐ ┌───▼────────┐ ┌───▼─────────┐
+│ Supabase     │ │ Supabase     │ │ OpenAI API │ │ SendGrid    │
+│ Postgres     │ │ Storage      │ │ GPT-4o-    │ │ Email       │
+│ + pgvector   │ │ member-      │ │ mini +     │ │ certify /   │
+│ Units,       │ │ records      │ │ text-      │ │ refer +     │
+│ Members,     │ │ bucket       │ │ embedding- │ │ PDHRA       │
+│ Assessments, │ │ (uploads)    │ │ 3-small    │ │ reminders   │
+│ Red Flags,   │ └──────────────┘ └────────────┘ └─────────────┘
+│ Doc Chunks   │
+└──────────────┘
 ```
 
-In production a single Docker image serves both the API and the pre-built React SPA (Flask catch-all route with `index.html` fallback). In development the frontend Vite dev server proxies API calls to Flask.
+In production a single Docker image serves both the API and the pre-built React SPA (Flask catch-all route with `index.html` fallback). In development the Vite dev server (:5173) calls the Flask API (:3000) directly over HTTP — there is no proxy; CORS is enabled for the dev origin via `flask-cors`.
 
 ---
 
@@ -58,11 +61,13 @@ In production a single Docker image serves both the API and the pre-built React 
 | Layer | Technology |
 |-------|-----------|
 | Frontend | React 19, TypeScript, Vite, Tailwind CSS, React Router 7 |
-| API | Flask 3.1, Gunicorn, Python 3.11+ |
+| API | Flask 3.1, flask-cors, Gunicorn, Python 3.11+ |
 | Database | Supabase (PostgreSQL + pgvector) |
 | LLM / Embeddings | OpenAI API (GPT-4o-mini, text-embedding-3-small) |
 | RAG | LangChain text splitters, pgvector retrieval (in-process in Flask) |
 | File Storage | Supabase Storage (bucket: `member-records`) |
+| Email | SendGrid (certify/refer + PDHRA notifications) |
+| Scheduling | APScheduler (PDHRA re-contact reminders, opt-in via `SCHEDULER_ENABLED`) |
 | Container | Docker multi-stage build (Node → uv/Python) |
 | Kubernetes | UDS (Zarf + Helm), Helm chart in `chart/` |
 | Python packages | `uv` (not pip) |
@@ -79,9 +84,9 @@ DeploymentReadinessPlatform/
 │       ├── pages/          # LoginPage, AssessmentPage, ProviderPage, CommanderPage
 │       ├── components/     # assessment/, provider/, commander/, layout/, ui/
 │       ├── services/       # api.ts (API client seam), fixtures.ts (mock data)
-│       ├── lib/            # Pure logic: screeners, readiness, rules, scoring, PDF export
+│       ├── lib/            # Pure logic: screeners, readiness, deployment, questionnaire, PDF export
 │       ├── types/drp.ts    # Domain model types
-│       └── contexts/       # RoleContext, LayoutContext, DevContext
+│       └── context/        # RoleContext, LayoutContext, DevContext
 ├── backend/
 │   ├── app.py              # Flask application factory, blueprint registration, SPA serving
 │   ├── config.py           # Environment config loader
@@ -91,12 +96,15 @@ DeploymentReadinessPlatform/
 │   ├── email_service.py    # SendGrid integration
 │   ├── scheduler.py        # APScheduler for PDHRA re-contact reminders
 │   ├── storage.py          # Supabase Storage integration
+│   ├── deployment_helpers.py  # Subtree member queries + incomplete-item lookups (notifications)
 │   ├── blueprints/         # assessments, service_members, units, readiness,
 │   │                       # chat, documents, notifications, uploads
 │   └── tests/              # pytest suite (unit + integration)
 ├── db/
 │   ├── migrations/         # SQL schema migrations (run manually against Supabase)
-│   └── seed/seed.sql       # 1-327 IN battalion: 90 soldiers, 5 companies, 12 non-deployable
+│   └── seed/               # seed.sql (1-327 IN: 90 soldiers, 12 non-deployable),
+│                           #   seed_post.sql (POST assessments + pre→post comparison baselines),
+│                           #   and demo reset scripts (reset_rodriguez, reset_dalton, dalton_needs_post)
 ├── chart/                  # Helm chart for Kubernetes deployment
 ├── manifests/              # UDS Package custom resource
 ├── bundle/                 # UDS bundle configuration
@@ -128,13 +136,24 @@ cp .env.example .env
 ```
 
 ```bash
-# .env
+# .env (repo root)
+
+# --- Supabase (Postgres + pgvector) ---
 SUPABASE_URL=https://YOUR_PROJECT.supabase.co
 SUPABASE_PUBLISHABLE_KEY=sb_publishable_xxx
 SUPABASE_PASSWORD=your-supabase-db-password
 SUPABASE_CONNECTION_STRING=postgresql://postgres:YOUR_PASSWORD@db.YOUR_PROJECT.supabase.co:5432/postgres
 SUPABASE_SERVICE_ROLE_KEY=supabase-service-role-key
+
+# --- OpenAI (commander data-chat + policy RAG) ---
 OPENAI_API_KEY=sk-proj-xxx
+
+# --- SendGrid (certify/refer + PDHRA email) ---
+SENDGRID_API_KEY=SG.xxxx
+SENDGRID_FROM_EMAIL=your-email@example.com
+
+# --- Scheduler (PDHRA re-contact reminders) ---
+SCHEDULER_ENABLED=true
 ```
 
 > **IPv6 note:** The default Supabase direct host is IPv6-only. If your network lacks IPv6, use the session pooler URL instead:
@@ -168,7 +187,7 @@ VITE_API_URL=http://localhost:3000
 
 ### 4. Open the App
 
-Navigate to `http://localhost:5173`. The login page lets you select a role (Service Member, Provider, Commander) to enter the corresponding surface.
+Navigate to `http://localhost:5173`. The login page offers four demo personas: two **Service Members** — Rodriguez (pre-deployment assessment due) and Dalton (post-deployment assessment due) — plus the **Provider** (Chen) and **Commander** (Harris). Selecting one enters that surface.
 
 ---
 
@@ -195,10 +214,11 @@ Route: `/provider`
 Assessment review queue sorted red-flagged submissions first. Providers can:
 
 - View a detail drawer with all assessment responses, auto-scored screener results, and fired red flags
-- **Certify** (mark deployable) or **Refer** (mark non-deployable with referral type and notes)
+- On **POST** assessments, see a **pre→post comparison panel** — baseline vs. return PHQ-9/PCL-5 with color-coded deltas and the reported deployment exposures
+- **Certify / Refer** decisions, with actions that adapt to the form: *Certify (deployable) / Refer (non-deployable)* for pre-deployment, *Clear (no referral) / Refer for Care* for post-deployment
 - Chat with the **Policy Assistant** — a RAG-powered interface over uploaded policy PDFs for grounded regulatory Q&A
 
-Certification and referral decisions trigger email notifications to the service member and update the unit readiness roll-up.
+Each decision triggers an automatic email to the service member and updates the unit readiness roll-up.
 
 **Key files:** [frontend/src/components/provider/ReviewQueue.tsx](frontend/src/components/provider/ReviewQueue.tsx), [frontend/src/components/provider/PolicyChat.tsx](frontend/src/components/provider/PolicyChat.tsx)
 
@@ -220,12 +240,12 @@ Real-time unit readiness view for battalion and company commanders:
 
 ### Red-Flag Rule Engine
 
-The rule engine ([backend/rules.py](backend/rules.py)) runs on every assessment submission and re-runs on certify/refer. Rules fire based on:
+The rule engine ([backend/rules.py](backend/rules.py)) runs on every assessment submission. (Certify resolves that assessment's flags and recomputes deployability from any that remain; refer marks the member non-deployable — neither re-evaluates the rules.) Rules fire based on:
 
 | Rule | Trigger | Severity |
 |------|---------|---------|
 | `PHQ9_ELEVATED` | PHQ-9 total ≥ 10 | HIGH |
-| `PHQ9_MILD` | PHQ-9 total 5–9 | MEDIUM |
+| `PHQ9_MILD` | PHQ-9 total 5–9 | LOW |
 | `PHQ9_SELF_HARM` | PHQ-9 question 9 > 0 | HIGH |
 | `PCL5_ELEVATED` | PCL-5 total ≥ 31 | HIGH |
 | `DENTAL_CLASS_3` | Dental class = 3 | HIGH |
@@ -246,24 +266,27 @@ Base URL: `http://localhost:3000`
 ```
 GET  /api/health
 
-GET  /api/assessments              ?status= &unit_id= &type=
-GET  /api/assessments/:id
-POST /api/assessments              (submit; auto-scores + flags on creation)
+GET   /api/assessments             ?status= &unit_id= &type=
+GET   /api/assessments/:id         (POST type also returns a pre→post `comparison`)
+POST  /api/assessments             (submit; auto-scores + flags on creation)
 PATCH /api/assessments/:id/certify
 PATCH /api/assessments/:id/refer
+POST  /api/assessments/:id/notify-referral   (email the member about a referral)
 
-GET  /api/service-members          ?unit_id= &deployable=
-GET  /api/service-members/:id
+GET   /api/service-members         ?unit_id= &deployable=
+GET   /api/service-members/:id
 
-GET  /api/units
-GET  /api/units/:id
+GET   /api/units
+GET   /api/units/:id
+POST  /api/units/:id/notify-deployment       (deployment-readiness email blast to the unit)
 
-GET  /api/readiness                ?unit_id=
-GET  /api/readiness/trend          ?unit_id=
-GET  /api/red-flags/summary        ?unit_id=
+GET   /api/readiness               ?unit_id=
+GET   /api/readiness/trend         ?unit_id=
+GET   /api/readiness/post-deployment ?unit_id=
+GET   /api/red-flags/summary       ?unit_id=
 
-POST /api/policy-chat              {message, history}
-POST /api/commander/chat           {message, unit_id}
+POST  /api/policy-chat             {question, max_chunks?}
+POST  /api/commander/chat          {question, unit_id, history?}
 
 POST /api/documents                (ingest PDF: base64 JSON or multipart)
 GET  /api/documents
@@ -291,18 +314,23 @@ The database is hosted on Supabase (PostgreSQL + pgvector). To set up a new inst
    document_chunks  — RAG chunks with pgvector embeddings (auto-created on first ingest)
    ```
 
-3. Apply migrations in order:
+3. Apply the migrations. They add the email/notification/scheduler columns
+   (`email`, `deployment_date`, `referral_notified_at`). The three files overlap
+   and are all idempotent (`ADD COLUMN IF NOT EXISTS`), so running all of them is
+   safe:
    ```bash
-   # Run each file against your Supabase project via the SQL editor or psql
-   db/migrations/001_add_deployment_date_and_email.sql
-   db/migrations/002_add_referral_notified_at.sql
-   db/migrations/0001_add_notification_columns.sql
+   psql "$SUPABASE_CONNECTION_STRING" -f db/migrations/0001_add_notification_columns.sql
+   psql "$SUPABASE_CONNECTION_STRING" -f db/migrations/001_add_deployment_date_and_email.sql
+   psql "$SUPABASE_CONNECTION_STRING" -f db/migrations/002_add_referral_notified_at.sql
    ```
 
-4. Seed with the synthetic 1-327 IN battalion (90 soldiers, 12 non-deployable):
+4. Seed the synthetic 1-327 IN battalion, then the post-deployment data:
    ```bash
-   psql "$SUPABASE_CONNECTION_STRING" -f db/seed/seed.sql
+   psql "$SUPABASE_CONNECTION_STRING" -f db/seed/seed.sql        # 90 soldiers, 12 non-deployable
+   psql "$SUPABASE_CONNECTION_STRING" -f db/seed/seed_post.sql   # POST assessments + pre→post baselines
    ```
+   `db/seed/` also holds demo reset scripts (`reset_rodriguez.sql`,
+   `reset_dalton.sql`, `dalton_needs_post.sql`) for re-running the assessment flows.
 
 ---
 
@@ -415,7 +443,7 @@ The deployed app is exposed at `https://drp.<DOMAIN>` (default: `drp.uds.dev`) t
 | Variable | Default | Description |
 |----------|---------|-------------|
 | `VITE_USE_MOCKS` | `true` in dev, `false` in Docker | Use fixture data instead of real API calls |
-| `VITE_API_URL` | `""` (same-origin) | API base URL; empty means same host as the page |
+| `VITE_API_URL` | `http://localhost:3000` (dev fallback); `""` (same-origin) in Docker | API base URL; empty means same host as the page |
 | `VITE_MOCK_AI` | inherits `VITE_USE_MOCKS` | Override mock behavior for chat endpoints only |
 
 ---
@@ -426,5 +454,5 @@ The deployed app is exposed at `https://drp.<DOMAIN>` (default: `drp.uds.dev`) t
 |----------|---------|
 | [docs/configuration.md](docs/configuration.md) | Full configuration reference |
 | [docs/justifications.md](docs/justifications.md) | UDS policy exemptions with justification |
-| [DRP_SPEC.md](DRP_SPEC.md) | Full project specification and DoD context |
+| [docs/DRP_SPEC.md](docs/DRP_SPEC.md) | Full project specification and DoD context |
 | [CLAUDE_CODE_BUILD.md](CLAUDE_CODE_BUILD.md) | Complete build guide, database schema, API spec |
