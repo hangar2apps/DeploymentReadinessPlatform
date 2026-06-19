@@ -22,6 +22,9 @@ def client():
     app = create_app()
     app.config["TESTING"] = True
     with app.test_client() as c:
+        # policy-chat and commander/chat are provider/commander-guarded; commander
+        # satisfies both. Authenticate the test client via the dev-header fallback.
+        c.environ_base["HTTP_X_DEV_ROLE"] = "commander"
         yield c
 
 
@@ -83,7 +86,7 @@ class TestPolicyChatSuccess:
                 }
             ],
         }
-        with patch("blueprints.chat.rag.ask_policy", return_value=result):
+        with patch("rag.ask_policy", return_value=result):
             r = client.post("/api/policy-chat", json={"question": "What is the retention policy?"})
         assert r.status_code == 200
         data = r.get_json()
@@ -91,18 +94,18 @@ class TestPolicyChatSuccess:
         assert data["sources"] == result["sources"]
 
     def test_passes_question_to_rag(self, client):
-        with patch("blueprints.chat.rag.ask_policy", return_value={"answer": "ok", "sources": []}) as mock_ask:
+        with patch("rag.ask_policy", return_value={"answer": "ok", "sources": []}) as mock_ask:
             client.post("/api/policy-chat", json={"question": "What is the dental policy?"})
         mock_ask.assert_called_once()
         assert mock_ask.call_args.args[0] == "What is the dental policy?"
 
     def test_uses_default_max_chunks_of_5(self, client):
-        with patch("blueprints.chat.rag.ask_policy", return_value={"answer": "ok", "sources": []}) as mock_ask:
+        with patch("rag.ask_policy", return_value={"answer": "ok", "sources": []}) as mock_ask:
             client.post("/api/policy-chat", json={"question": "test"})
         assert mock_ask.call_args.kwargs["max_chunks"] == 5
 
     def test_passes_custom_max_chunks_to_rag(self, client):
-        with patch("blueprints.chat.rag.ask_policy", return_value={"answer": "ok", "sources": []}) as mock_ask:
+        with patch("rag.ask_policy", return_value={"answer": "ok", "sources": []}) as mock_ask:
             client.post("/api/policy-chat", json={"question": "test", "max_chunks": 10})
         assert mock_ask.call_args.kwargs["max_chunks"] == 10
 
@@ -113,13 +116,13 @@ class TestPolicyChatSuccess:
 
 class TestPolicyChatErrors:
     def test_rag_exception_returns_502(self, client):
-        with patch("blueprints.chat.rag.ask_policy", side_effect=RuntimeError("db down")):
+        with patch("rag.ask_policy", side_effect=RuntimeError("db down")):
             r = client.post("/api/policy-chat", json={"question": "What is the policy?"})
         assert r.status_code == 502
         assert "policy assistant unavailable" in r.get_json()["error"]
 
     def test_502_error_includes_original_message(self, client):
-        with patch("blueprints.chat.rag.ask_policy", side_effect=ConnectionError("OpenAI timeout")):
+        with patch("rag.ask_policy", side_effect=ConnectionError("OpenAI timeout")):
             r = client.post("/api/policy-chat", json={"question": "test"})
         assert "OpenAI timeout" in r.get_json()["error"]
 

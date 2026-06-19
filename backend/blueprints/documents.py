@@ -14,10 +14,14 @@ from typing import Tuple
 from flask import Blueprint, request, jsonify
 from flask.wrappers import Response
 
+import auth
+import rag
+
 bp = Blueprint("documents", __name__, url_prefix="/api/documents")
 
 
 @bp.post("")
+@auth.require_role(auth.ROLE_PROVIDER, auth.ROLE_COMMANDER)
 def ingest() -> Tuple[Response, int]:
     """
     Ingest a PDF. Returns {document_id, chunks_created, status}.
@@ -58,6 +62,7 @@ def ingest() -> Tuple[Response, int]:
 
 
 @bp.get("")
+@auth.require_role(auth.ROLE_PROVIDER, auth.ROLE_COMMANDER)
 def list_documents() -> Tuple[Response, int]:
     """
     List ingested documents.

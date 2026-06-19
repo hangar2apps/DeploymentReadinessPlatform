@@ -7,6 +7,7 @@ from uuid import UUID
 from flask import Blueprint, jsonify
 from flask.wrappers import Response
 
+import auth
 import db
 
 bp = Blueprint("units", __name__, url_prefix="/api/units")
@@ -47,6 +48,7 @@ def readiness_stats(unit_id: str) -> dict[str, Any]:
 
 
 @bp.get("")
+@auth.require_role(auth.ROLE_PROVIDER, auth.ROLE_COMMANDER)
 def list_units() -> Response:
     """
     GET /api/units — full list (parent_unit_id lets the client build the tree).
@@ -57,11 +59,14 @@ def list_units() -> Response:
 
 
 @bp.get("/<uuid:unit_id>")
+@auth.require_role(auth.ROLE_PROVIDER, auth.ROLE_COMMANDER)
 def get_unit(unit_id: UUID) -> Tuple[Response, int]:
     """
     GET /api/units/:id — detail with readiness stats and child units.
     """
 
+    # Only within the caller's command (raises 403 otherwise).
+    auth.scope_unit(str(unit_id))
     row = db.query_one("SELECT * FROM units WHERE id = %s", (str(unit_id),))
     if not row:
         return jsonify({"error": "unit not found"}), 404

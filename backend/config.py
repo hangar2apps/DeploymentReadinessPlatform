@@ -33,6 +33,22 @@ PORT = int(os.environ.get("BACKEND_PORT", "3000"))
 FRONTEND_ORIGIN = os.environ.get("FRONTEND_ORIGIN", "http://localhost:5173")
 DEBUG = os.environ.get("BACKEND_DEBUG", "").lower() in ("1", "true", "yes", "on")
 
+# --- Auth (UDS Authservice + Keycloak) ---
+# Authservice forwards the validated Keycloak ID token here. The header is
+# configurable so a different Authservice build (or a proxy that renames it) is
+# a one-line change. See auth.py for the trust model.
+AUTH_HEADER = os.environ.get("AUTH_HEADER", "Authorization")
+
+# Authorization roles are owned by the roster DB (member_roles), resolved from the
+# JWT's `edipi` claim — not from Keycloak groups. See auth.py / docs/configuration.md.
+
+# Local-dev identity fallback, only consulted when DEBUG is on and no JWT is
+# present (i.e. running without Authservice in front). DEV_ROLE empty => the
+# backend treats unauthenticated dev requests as anonymous (401). For multiple
+# roles use a comma-separated X-Dev-Roles header per request.
+DEV_ROLE = os.environ.get("DEV_ROLE", "")
+DEV_EDIPI = os.environ.get("DEV_EDIPI", "")
+
 # --- Static SPA ---
 # Directory holding the built React app (frontend/dist). The container image copies the build here; locally it usually doesn't exist (run Vite separately).
 # A str env override is wrapped so STATIC_DIR is always a Path.

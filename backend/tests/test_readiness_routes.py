@@ -49,6 +49,11 @@ def client():
     app = create_app()
     app.config["TESTING"] = True
     with app.test_client() as test_client:
+        # Readiness routes are commander-only and certify/refer are provider/commander;
+        # the assessment-behavior tests below patch the role per class. Default the
+        # client to a commander with no home unit (so unit scoping is permissive and
+        # the strict DB mocks aren't perturbed — see auth.scope_unit).
+        test_client.environ_base["HTTP_X_DEV_ROLE"] = "commander"
         yield test_client
 
 

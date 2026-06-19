@@ -187,7 +187,9 @@ VITE_API_URL=http://localhost:3000
 
 ### 4. Open the App
 
-Navigate to `http://localhost:5173`. The login page offers four demo personas: two **Service Members** — Rodriguez (pre-deployment assessment due) and Dalton (post-deployment assessment due) — plus the **Provider** (Chen) and **Commander** (Harris). Selecting one enters that surface.
+Navigate to `http://localhost:5173`. In **mock mode** (the default dev build, `VITE_USE_MOCKS=true`) the login page offers four demo personas: two **Service Members** — Rodriguez (pre-deployment assessment due) and Dalton (post-deployment assessment due) — plus the **Provider** (Chen) and **Commander** (Harris). Selecting one enters that surface.
+
+In **real mode** (`VITE_USE_MOCKS=false`) there is no picker — the app runs behind UDS Authservice + Keycloak, calls `GET /api/me` to resolve the signed-in user's role(s) and identity, and routes straight to their surface. For local real-mode dev without Authservice, set `BACKEND_DEBUG=true` and a `DEV_ROLE` / `DEV_EDIPI` in `.env` (or send `X-Dev-Role` / `X-Dev-Edipi` headers per request) — see [docs/configuration.md](docs/configuration.md).
 
 ---
 

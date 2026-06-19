@@ -1,18 +1,35 @@
-// Mock sign-in. Pick one of three seeded personas; each routes to that role's
-// single surface. No real auth — Keycloak handles that later. There is no in-app
-// role switching, so this page is the only place a role is chosen.
+// Sign-in surface. In mock mode it shows the seeded-persona picker (the only
+// place a persona is chosen). In real mode UDS Authservice + Keycloak have already
+// authenticated the user before the SPA loads, so there is no picker — this page
+// just bounces to the user's surface once /api/me resolves.
 
 import { Navigate, useNavigate } from 'react-router-dom';
 import { useRole } from '../context/RoleContext';
 import { PERSONAS, LOGIN_ORDER } from '../lib/roles';
+import { USE_MOCKS } from '../services/api';
 import { CuiBar } from '../components/layout/CuiBar';
 
 export default function LoginPage() {
-  const { persona, login } = useRole();
+  const { persona, login, loading } = useRole();
   const navigate = useNavigate();
 
   // Already signed in — go straight to the role's surface.
   if (persona) return <Navigate to={persona.route} replace />;
+
+  // Real mode: no picker. Show a brief status while /api/me resolves; if it ever
+  // fails (no session), the user is outside Authservice and there's nothing to pick.
+  if (!USE_MOCKS) {
+    return (
+      <div className="flex min-h-screen flex-col bg-bg">
+        <CuiBar />
+        <div className="flex flex-1 items-center justify-center px-4 py-10">
+          <p className="text-sm text-muted">
+            {loading ? 'Signing you in…' : 'Not signed in. Reload to authenticate via Keycloak.'}
+          </p>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="flex min-h-screen flex-col bg-bg">

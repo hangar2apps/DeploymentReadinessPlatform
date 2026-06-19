@@ -8,9 +8,9 @@ lerna-debug.log*
 
 .DS_Store
 # local UDS deploy config (contains secrets) — both bundle layouts
-bundle/uds-config.yaml
 bundles/**/uds-config.yaml
 *.tar.zst
+tofu/keycloak/terraform.tfvars.json
 
 # Diagnostic reports (https://nodejs.org/api/report.html)
 report.[0-9]*.[0-9]*.[0-9]*.[0-9]*.json

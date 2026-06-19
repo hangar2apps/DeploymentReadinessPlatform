@@ -8,12 +8,15 @@ import AssessmentPage from './pages/AssessmentPage';
 import ProviderPage from './pages/ProviderPage';
 import CommanderPage from './pages/CommanderPage';
 
-// Locks a route to a single role. Signed out -> login; wrong role -> that
-// persona's own surface (no cross-role access).
+// Gates a route to a role the user holds. Signed out -> login; a role they don't
+// hold -> their primary surface. A multi-role user (e.g. commander who is also a
+// service member) is admitted to every surface in their set. While the real-mode
+// /api/me lookup is in flight, hold rather than bouncing to /login.
 function RequireRole({ role, children }: { role: Role; children: ReactNode }) {
-  const { persona } = useRole();
-  if (!persona) return <Navigate to="/login" replace />;
-  if (persona.role !== role) return <Navigate to={persona.route} replace />;
+  const { roles, hasRole, persona, loading } = useRole();
+  if (loading) return null;
+  if (!persona || roles.length === 0) return <Navigate to="/login" replace />;
+  if (!hasRole(role)) return <Navigate to={persona.route} replace />;
   return <>{children}</>;
 }
 

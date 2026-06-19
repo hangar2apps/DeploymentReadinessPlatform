@@ -1,6 +1,9 @@
 variables:
   - name: IMAGE
     default: "ghcr.io/defenseunicorns/deployment-readiness-platform:0.1.0"
+  - name: KEYCLOAK_URL
+    description: "Base Keycloak URL (no trailing slash). Override for non-uds.dev domains."
+    default: "https://sso.uds.dev"
 
 tasks:
   - name: local-backend
@@ -12,23 +15,32 @@ tasks:
           uv sync
           uv run python app.py
 
-  - name: build
+  - name: build-drp
     description: "Build the DRP container image (Flask API + built React SPA) from src/backend/Dockerfile"
     actions:
       # Export the build directly to a local OCI-layout archive instead of loading it into the docker daemon. zarf.yaml references this archive via `imageArchives`, so the image never needs to be pushed to (or pulled from) ghcr.io. buildx provides BuildKit, which the Dockerfile's RUN --mount cache/bind mounts require, and `type=oci` writes the layout Zarf wants.
       # TODO change this to use an OCI registry when the image is pushed there
-      - cmd: docker buildx build -f "backend/Dockerfile" -t "${IMAGE}" --output "type=oci,dest=images/drp-0.1.0.oci.tar" .
+      - cmd: docker buildx build -f "backend/Dockerfile" -t "${IMAGE}" --no-cache --output "type=oci,dest=images/drp-0.1.0.oci.tar" .
       - cmd: uds zarf package create . --no-color --confirm
-      - cmd: uds create bundle/
+      - cmd: uds create bundles/drp --confirm
+
+  - name: build-cluster-bundle
+    description: TODO
+    actions:
+      - cmd: uds create bundles/core-dev --confirm
 
   - name: cluster
     description: "Bring up a local k3d UDS Core slim-dev cluster"
     actions:
-      - cmd: uds deploy k3d-core-slim-dev:latest --no-color --confirm
+      - cmd: uds deploy uds-bundle-drp-core-dev-*.tar.zst --confirm
+        dir: bundles/core-dev
 
-  - name: deploy
+  - name: deploy-drp
     description: "Deploy the built Zarf package to the local cluster"
     actions:
       # TODO pin the version to prevent conflicts
       - cmd: uds deploy uds-bundle-deployment-readiness-platform-*.tar.zst --no-color --confirm
-        dir: bundle
+        dir: bundles/drp
+      # Zarf reloads the image into the in-cluster registry, but with a static tag (0.1.0) and an unchanged pod template, Kubernetes sees no diff and never rolls the pod — so rebuilt backend code keeps running the old image. Force a rollout so the pod re-pulls the current image (works because pullPolicy is Always; see chart/values.yaml).
+      - cmd: uds zarf tools kubectl rollout restart deployment -n drp
+      - cmd: uds zarf tools kubectl rollout status deployment -n drp --timeout=180s

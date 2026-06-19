@@ -1,0 +1,55 @@
+# DRP dev-cluster bundle.
+#
+# This reproduces the published `k3d-core-slim-dev` bundle — a local k3d cluster plus the same UDS Core functional layers it ships (core-base + core-identity- authorization) — with ONE change: the Keycloak `uds-opentofu-client` is enabled at initial realm import. That client is what the OpenTofu config in tofu/keycloak authenticates as to seed the ~90 demo users (see tofu/keycloak/README.md).
+#
+# Use this instead of `uds deploy k3d-core-slim-dev:latest` when you want to manage Keycloak with OpenTofu, because OPENTOFU_CLIENT_ENABLED is a realmInitEnv value that only takes effect during the FIRST realm import — it cannot be turned on later without reinitializing Keycloak.
+kind: UDSBundle
+metadata:
+  name: drp-core-dev
+  description: "Local k3d + UDS Core (slim-dev layer set) with the Keycloak OpenTofu client enabled, for DRP development"
+  version: "0.1.0"
+
+packages:
+  # Local k3d dev cluster (MetalLB, local-path storage, etc.). Same package and ref the slim-dev bundle uses. Remove this package to deploy onto a cluster you already have — the remaining layers deploy onto any conformant cluster.
+  - name: uds-k3d-dev
+    repository: ghcr.io/defenseunicorns/packages/uds-k3d
+    ref: 0.20.1-airgap
+
+  # Zarf init (registry, agent, injector). Pinned to the version slim-dev 1.6.0 was built and tested against.
+  - name: init
+    repository: ghcr.io/zarf-dev/packages/init
+    ref: v0.77.0
+    # The Zarf init package is keyless-signed (cosign/Fulcio). Verify it against
+    # the Zarf release workflow identity, as the slim-dev bundle does.
+    keylessVerification:
+      certificateIdentityRegexp: "https://github\\.com/zarf-dev/zarf/\\.github/workflows/release\\.yml@refs/tags/v\\d+\\.\\d+\\.\\d+"
+      certificateOIDCIssuer: https://token.actions.githubusercontent.com
+
+  # core-base: Istio, the UDS Operator, and the Pepr policy engine. Required foundation for every other layer.
+  - name: core-base
+    repository: ghcr.io/defenseunicorns/packages/uds/core-base
+    ref: 1.6.0-upstream
+
+  # core-identity-authorization: Keycloak + Authservice (SSO). This is the layer the DRP SSO client and EDIPI-based auth depend on.
+  #
+  # core-metrics-server is intentionally omitted — the slim-dev layer set does not include it, and k3d already ships a metrics server (running two conflicts).
+  - name: core-identity-authorization
+    repository: ghcr.io/defenseunicorns/packages/uds/core-identity-authorization
+    ref: 1.6.0-upstream
+    overrides:
+      keycloak:
+        keycloak:
+          values:
+            # Enable the realm-admin client OpenTofu uses to provision users. realmInitEnv is applied ONLY at initial realm import.
+            - path: realmInitEnv
+              value:
+                OPENTOFU_CLIENT_ENABLED: "true"
+            # Auth flows are also import-time only, so pin them here in the same deploy (per the UDS OpenTofu how-to). This is a username/password dev cluster — there is no CAC/PIV reader — so testers sign in with their EDIPI + the seeded password. OTP is disabled so the ~90 demo accounts don't each get forced through OTP enrollment on first login. None of this is appropriate for production, where an upstream IdP and X.509 would authenticate instead.
+            - path: realmAuthFlows
+              value:
+                USERNAME_PASSWORD_AUTH_ENABLED: true
+                X509_AUTH_ENABLED: false
+                SOCIAL_AUTH_ENABLED: false
+                OTP_ENABLED: false
+                WEBAUTHN_ENABLED: false
+                X509_MFA_ENABLED: false

@@ -25,6 +25,9 @@ def client():
     app = create_app()
     app.config["TESTING"] = True
     with app.test_client() as c:
+        # Document routes are provider/commander-guarded; authenticate via the
+        # dev-header fallback (see backend/auth.py).
+        c.environ_base["HTTP_X_DEV_ROLE"] = "commander"
         yield c
 
 

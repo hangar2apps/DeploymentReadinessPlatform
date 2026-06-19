@@ -19,7 +19,10 @@
 
 BEGIN;
 
-TRUNCATE TABLE red_flags, assessments, service_members, units RESTART IDENTITY CASCADE;
+-- member_roles is truncated via CASCADE on service_members, but list it
+-- explicitly so this stays correct if the FK ever changes. Requires migration
+-- 003 to have been applied first.
+TRUNCATE TABLE red_flags, assessments, member_roles, service_members, units RESTART IDENTITY CASCADE;
 
 -- ----------------------------------------------------------------------------
 -- Units — battalion -> companies (self-referencing hierarchy)
@@ -313,6 +316,21 @@ FROM (
   ('aaaaaaaa-aaaa-aaaa-aaaa-000000000015','IMMUNIZATION_GAP','MEDIUM','responses.immunizations_current == false','Immunization records incomplete or expired'),
   ('aaaaaaaa-aaaa-aaaa-aaaa-000000000016','NEW_MEDICATION','LOW','responses.new_medication == true','New medication started — provider review recommended')
 ) AS v(assessment_id, type, severity, rule_fired, message);
+
+-- ----------------------------------------------------------------------------
+-- App roles (multi-role authorization). Baseline "service_member" is implied by
+-- having a row above and is NOT listed here — only additive duty positions are.
+-- unit_id NULL => the role scopes to the member's own unit. Resolved by EDIPI,
+-- the join key between the roster and Keycloak identity.
+-- ----------------------------------------------------------------------------
+INSERT INTO member_roles (service_member_id, role, unit_id)
+SELECT sm.id, v.role, NULL
+FROM (
+  VALUES
+    ('1000000001', 'commander'),  -- LTC Harris — battalion commander (scopes to 1-327 IN)
+    ('1000000002', 'provider')    -- CPT Chen — battalion surgeon (provider)
+) AS v(edipi, role)
+JOIN service_members sm ON sm.edipi = v.edipi;
 
 -- ----------------------------------------------------------------------------
 -- Fake emails — one per service member, derived from name + EDIPI.

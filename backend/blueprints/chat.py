@@ -12,6 +12,7 @@ from typing import Any, Tuple
 from flask import Blueprint, request, jsonify
 from flask.wrappers import Response
 
+import auth
 import config
 import db
 from blueprints.units import readiness_stats
@@ -29,6 +30,7 @@ _MAX_HISTORY_CHARS = 2000
 
 
 @bp.post("/policy-chat")
+@auth.require_role(auth.ROLE_PROVIDER, auth.ROLE_COMMANDER)
 def policy_chat() -> Tuple[Response, int]:
     """
     Answer a policy question via in-process RAG and return answer + citations.
@@ -137,6 +139,7 @@ def _commander_context(unit_id: str) -> dict[str, Any]:
 
 
 @bp.post("/commander/chat")
+@auth.require_role(auth.ROLE_COMMANDER)
 def commander_chat() -> Tuple[Response, int]:
     """
     Answer a commander's data question by summarizing DB context via the LLM.
@@ -147,7 +150,8 @@ def commander_chat() -> Tuple[Response, int]:
     if not question:
         return jsonify({"error": "question is required"}), 400
 
-    unit_id = body.get("unit_id")
+    # Clamp to the commander's own unit subtree; default to it when unspecified.
+    unit_id = auth.scope_unit(body.get("unit_id"))
     if not unit_id:
         row = db.query_one("SELECT id FROM units WHERE parent_unit_id IS NULL LIMIT 1")
         unit_id = str(row["id"]) if row else None

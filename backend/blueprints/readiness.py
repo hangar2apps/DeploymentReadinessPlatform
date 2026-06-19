@@ -5,6 +5,7 @@ from typing import Optional
 
 from flask import Blueprint, jsonify, request
 
+import auth
 import db
 from blueprints.units import readiness_stats
 
@@ -79,9 +80,10 @@ def _company_breakdown(unit_id: str) -> list[dict[str, str | int | float]]:
 
 
 @bp.get("/api/readiness")
+@auth.require_role(auth.ROLE_COMMANDER)
 def readiness():
     """GET /api/readiness — KPI cards + per-company readiness."""
-    unit_id = request.args.get("unit_id") or _default_unit_id()
+    unit_id = auth.scope_unit(request.args.get("unit_id")) or _default_unit_id()
     if not unit_id:
         return jsonify({"error": "no units found"}), 404
     if not _unit_exists(unit_id):
@@ -181,9 +183,10 @@ def readiness_post_deployment():
 
 
 @bp.get("/api/readiness/trend")
+@auth.require_role(auth.ROLE_COMMANDER)
 def trend():
     """GET /api/readiness/trend — synthetic deployable-% time series."""
-    unit_id = request.args.get("unit_id") or _default_unit_id()
+    unit_id = auth.scope_unit(request.args.get("unit_id")) or _default_unit_id()
     if not unit_id:
         return jsonify({"error": "no units found"}), 404
     if not _unit_exists(unit_id):
@@ -203,9 +206,10 @@ def trend():
 
 
 @bp.get("/api/red-flags/summary")
+@auth.require_role(auth.ROLE_COMMANDER)
 def red_flags_summary():
     """GET /api/red-flags/summary — open red flags aggregated by dashboard category."""
-    unit_id = request.args.get("unit_id") or _default_unit_id()
+    unit_id = auth.scope_unit(request.args.get("unit_id")) or _default_unit_id()
     if not unit_id:
         return jsonify({"error": "no units found"}), 404
     if not _unit_exists(unit_id):

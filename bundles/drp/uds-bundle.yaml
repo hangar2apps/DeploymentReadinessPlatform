@@ -6,6 +6,6 @@ metadata:
 
 packages:
   - name: deployment-readiness-platform
-    path: ../
+    path: ../..
     ref: 0.1.0
     # Surface the deploy-time knobs at the bundle level. Set values in a uds-config.yaml (DOMAIN, SUPABASE_CONNECTION_STRING, OPENAI_API_KEY, ...).

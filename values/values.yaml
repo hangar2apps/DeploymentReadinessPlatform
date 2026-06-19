@@ -1,3 +1,5 @@
+domain: "###ZARF_VAR_DOMAIN###"
+
 config:
   openaiModel: "###ZARF_VAR_OPENAI_MODEL###"
   backendDebug: "###ZARF_VAR_BACKEND_DEBUG###"
@@ -5,3 +7,6 @@ config:
 secrets:
   supabaseConnectionString: "###ZARF_VAR_SUPABASE_CONNECTION_STRING###"
   openaiApiKey: "###ZARF_VAR_OPENAI_API_KEY###"
+  supabaseServiceRoleKey: "###ZARF_VAR_SUPABASE_SERVICE_ROLE_KEY###"
+  sendgridApiKey: "###ZARF_VAR_SENDGRID_API_KEY###"
+  supabaseUrl: "###ZARF_VAR_SUPABASE_URL###"

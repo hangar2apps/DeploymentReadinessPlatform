@@ -44,6 +44,18 @@ def get_conn() -> Generator[connection, None, None]:
     try:
         yield conn
     finally:
+        # Clear the connection's transaction state before returning it to the pool.
+        # The read helpers (query/query_one) never commit, so without this a
+        # connection goes back either idle-in-transaction or — after a failed
+        # statement — ABORTED. A poisoned connection makes the next borrower's
+        # unrelated query fail with "current transaction is aborted, commands
+        # ignored until end of transaction block". transaction()/execute() have
+        # already committed by the time this runs, so the rollback is a no-op for
+        # them. Guard it so a broken connection can't mask the original error.
+        try:
+            conn.rollback()
+        except Exception:
+            pass
         pool.putconn(conn)
 
 
