@@ -1,7 +1,21 @@
+# External domain the app is exposed under (→ drp.<domain>). Injected from the
+# Zarf DOMAIN variable via values/values.yaml; used by the UDS Package CR for
+# the SSO redirect URI.
+domain: "uds.dev"
+
+# SSO / Authservice fronts the whole app for authentication only. There is no
+# group-based gate: roles are owned by the roster DB (member_roles) and resolved
+# by the backend from the JWT `edipi` claim. See docs/configuration.md.
+
 image:
   repository: ghcr.io/defenseunicorns/deployment-readiness-platform
   tag: "0.1.0"
-  pullPolicy: IfNotPresent
+  # Always pull: the image tag is static (0.1.0) but its contents change on every
+  # `uds run build`. With IfNotPresent the node keeps the cached 0.1.0 and never
+  # picks up rebuilt code, so a redeploy silently runs the old image. Always makes
+  # the pod fetch the current 0.1.0 from the in-cluster registry on each restart.
+  # For production, pin a unique/digest-based tag instead of relying on this.
+  pullPolicy: Always
 
 replicaCount: 1
 
@@ -10,10 +24,14 @@ config:
   backendPort: "3000"
   openaiModel: "gpt-4o-mini"
   backendDebug: "false"
+  sendgridFromEmail: "hangar2apps@gmail.com"
 
 secrets:
   supabaseConnectionString: ""
   openaiApiKey: ""
+  supabaseServiceRoleKey: ""
+  sendgridApiKey: ""
+  supabaseUrl: ""
 
 service:
   type: ClusterIP

@@ -52,6 +52,19 @@ def client():
         yield c
 
 
+# Routes are guarded by auth.require_role (see backend/auth.py). Under TESTING the
+# backend honors X-Dev-* headers as the caller's identity; set them on the test
+# client's environ_base so every request in a class authenticates as the right role.
+# (HTTP_<NAME> is how WSGI surfaces request headers.)
+SOLDIER_ID = "00000000-0000-0000-0000-000000000001"
+
+
+def _auth_as(client, role, member_id=None):
+    client.environ_base["HTTP_X_DEV_ROLE"] = role
+    if member_id is not None:
+        client.environ_base["HTTP_X_DEV_MEMBER_ID"] = member_id
+
+
 # ---------------------------------------------------------------------------
 # Health
 # ---------------------------------------------------------------------------
@@ -72,6 +85,12 @@ class TestHealth:
 # ---------------------------------------------------------------------------
 
 class TestCreateAssessmentValidation:
+    @pytest.fixture(autouse=True)
+    def _auth(self, client):
+        # Soldier role; member id matches the "some-uuid" used by the valid-types
+        # test so require_self passes and the request reaches the DB layer.
+        _auth_as(client, "service_member", member_id="some-uuid")
+
     def test_missing_service_member_id_returns_400(self, client):
         r = client.post("/api/assessments",
                         json={"type": "PRE", "responses": {}})
@@ -109,6 +128,10 @@ class TestCreateAssessmentValidation:
 # ---------------------------------------------------------------------------
 
 class TestReferValidation:
+    @pytest.fixture(autouse=True)
+    def _auth(self, client):
+        _auth_as(client, "provider")
+
     def test_missing_referral_type_returns_400(self, client):
         r = client.patch(
             "/api/assessments/00000000-0000-0000-0000-000000000001/refer",
@@ -228,6 +251,11 @@ _FAKE_ASSESSMENT = {
 
 class TestCreateAssessmentRuleEngine:
     """Submit assessments with a mocked DB and verify flags come back."""
+
+    @pytest.fixture(autouse=True)
+    def _auth(self, client):
+        # Soldier submitting their own record (member id matches the posted id).
+        _auth_as(client, "service_member", member_id=SOLDIER_ID)
 
     @pytest.fixture(autouse=True)
     def mock_db(self):

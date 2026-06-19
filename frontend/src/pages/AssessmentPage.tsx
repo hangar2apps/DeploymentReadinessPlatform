@@ -13,6 +13,7 @@ import {
   loadDraft,
   saveDraft,
   clearDraft,
+  USE_MOCKS,
 } from '../services/api';
 import { usePersona } from '../context/RoleContext';
 import { useDev } from '../context/DevContext';
@@ -46,14 +47,20 @@ export default function AssessmentPage() {
   // persona's hardcoded values.
   const [member, setMember] = useState<ServiceMember | null>(null);
   const [assessedType, setAssessedType] = useState<AssessmentType | null>(null);
-  // The real (UUID) service member id, resolved from the persona's EDIPI. The
-  // persona.member_id is a fixture string, so the backend can't accept it.
+  // The real (UUID) service member id. In real mode /api/me already resolves the signed-in soldier to their DB row, so persona.member_id is the UUID and we use it directly (a soldier can't list service members). In mock mode persona.member_id is a fixture string, so we resolve the real id from the persona's EDIPI.
   const [memberId, setMemberId] = useState<string | null>(null);
   const [bootstrapping, setBootstrapping] = useState(true);
 
   useEffect(() => {
     let active = true;
-    getServiceMemberByEdipi(persona.edipi)
+    // Mock mode: resolve the real (UUID) id + record from the persona's fixture
+    // EDIPI so the screen can show the actual soldier's identity. Real mode:
+    // /api/me already resolved the signed-in soldier, so persona.member_id is the
+    // UUID and the persona carries the real identity — no lookup, no record.
+    const resolveMember = USE_MOCKS
+      ? getServiceMemberByEdipi(persona.edipi)
+      : Promise.resolve<ServiceMember | null>(null);
+    resolveMember
       .then((m) => {
         const id = m?.id ?? persona.member_id;
         if (active) {
@@ -274,7 +281,7 @@ export default function AssessmentPage() {
           memberName={`${effectivePersona.rank} ${effectivePersona.name}`}
           status={status}
           type={type}
-          onStart={() => {}}
+          onStart={() => { }}
         />
       </div>
     );

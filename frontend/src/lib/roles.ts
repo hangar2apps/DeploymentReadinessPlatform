@@ -78,5 +78,25 @@ export const PERSONAS: Record<string, Persona> = {
   },
 };
 
-// Display order of the login cards / dev role-switcher.
+// Display order of the login cards / dev role-switcher (mock mode).
 export const LOGIN_ORDER: string[] = ['rodriguez', 'dalton', 'chen', 'harris'];
+
+// Surface display order — used to list the surfaces a multi-role user can reach.
+export const ROLE_ORDER: Role[] = ['service_member', 'provider', 'commander'];
+
+// Highest-privilege first — used to pick a multi-role user's default surface.
+const ROLE_PRIORITY: Role[] = ['commander', 'provider', 'service_member'];
+
+export function primaryRole(roles: Role[]): Role | null {
+  for (const r of ROLE_PRIORITY) if (roles.includes(r)) return r;
+  return null;
+}
+
+// The seeded persona that supplies a role's cosmetic surface details (label,
+// blurb, route). With PERSONAS keyed by persona id, this is the first persona
+// declared for the role — used for real-mode identity and the sidebar surface list.
+export function personaForRole(role: Role): Persona {
+  const p = Object.values(PERSONAS).find((x) => x.role === role);
+  if (!p) throw new Error(`no persona seeded for role ${role}`);
+  return p;
+}

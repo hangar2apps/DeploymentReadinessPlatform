@@ -1,0 +1,11 @@
+# OpenTofu / Terraform local state and provider cache. State can contain the
+# client secret and user passwords — never commit it.
+.terraform/
+.terraform.lock.hcl
+*.tfstate
+*.tfstate.*
+crash.log
+# Local overrides for secrets (prefer TF_VAR_* env vars instead).
+*.auto.tfvars
+!members.auto.tfvars.json
+secret.tfvars

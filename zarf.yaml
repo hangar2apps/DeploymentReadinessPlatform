@@ -23,13 +23,23 @@ variables:
 
   - name: SUPABASE_CONNECTION_STRING
     description: "Postgres DSN for the Supabase (pgvector) database"
-    default: ""
     prompt: true
     sensitive: true
 
   - name: OPENAI_API_KEY
     description: "OpenAI API key"
-    default: ""
+    prompt: true
+    sensitive: true
+
+  - name: SENDGRID_API_KEY
+    prompt: true
+    sensitive: true
+
+  - name: SUPABASE_SERVICE_ROLE_KEY
+    prompt: true
+    sensitive: true
+
+  - name: SUPABASE_URL
     prompt: true
     sensitive: true
 
@@ -45,11 +55,8 @@ components:
         valuesFiles:
           - values/values.yaml
 
-    manifests:
-      - name: uds-package
-        namespace: drp
-        files:
-          - manifests/uds-package.yaml
+    # The UDS Package CR is now a chart template (chart/templates/uds-package.yaml)
+    # so DOMAIN templates into the SSO redirect URI. No standalone manifest.
 
     # Pull the app image from a local OCI-layout archive built by `uds run build` (see tasks.yaml) rather than from ghcr.io. The image is not published to a registry, so this keeps `zarf package create` fully offline/local.
     imageArchives:

@@ -1,0 +1,82 @@
+apiVersion: uds.dev/v1alpha1
+kind: Package
+metadata:
+  name: deployment-readiness-platform
+  namespace: {{ .Release.Namespace }}
+spec:
+  # One origin: the Flask app serves both /api and the React SPA, so a single exposure on the tenant gateway covers the whole app.
+  network:
+    expose:
+      - service: {{ .Chart.Name }}
+        selector:
+          {{- include "drp.selectorLabels" . | nindent 10 }}
+        host: drp
+        gateway: tenant
+        port: {{ .Values.config.backendPort | int }}
+
+    allow:
+      # Supabase Postgres (pgvector). External over the internet — direct 5432 and the transaction pooler 6543.
+      # This will eventually be replaced by either RDS or a postgres UDS package.
+      - direction: Egress
+        selector:
+          {{- include "drp.selectorLabels" . | nindent 10 }}
+        remoteGenerated: Anywhere
+        ports:
+          - 5432
+          - 6543
+        description: "Supabase Postgres (pgvector) — DRP data + RAG document chunks"
+
+      # OpenAI API (api.openai.com:443) — commander data-chat LLM + policy RAG embeddings/completions.
+      - direction: Egress
+        selector:
+          {{- include "drp.selectorLabels" . | nindent 10 }}
+        remoteGenerated: Anywhere
+        port: 443
+        description: "OpenAI API (api.openai.com) — chat + embeddings over HTTPS"
+
+      # SSO: Authservice runs the OIDC flow on the app's behalf. These let the
+      # protected workload reach Keycloak (internal) and the tenant gateway
+      # (external redirect leg). See the UDS reference package.
+      - direction: Egress
+        remoteNamespace: keycloak
+        remoteSelector:
+          app.kubernetes.io/name: keycloak
+        selector:
+          {{- include "drp.selectorLabels" . | nindent 10 }}
+        port: 8080
+        description: "SSO Internal — Keycloak token endpoint"
+
+      - direction: Egress
+        remoteNamespace: istio-tenant-gateway
+        remoteSelector:
+          app: tenant-ingressgateway
+        selector:
+          {{- include "drp.selectorLabels" . | nindent 10 }}
+        port: 443
+        description: "SSO External — OIDC redirect via the tenant gateway"
+
+  # ─── SSO ──────────────────────────────────────────────────────────────────
+  # DRP has no native OIDC, so Authservice fronts the whole app: it runs the
+  # Keycloak login flow and forwards the ID token to the backend as a Bearer JWT.
+  #
+  # Authorization (roles) is NOT done here. Authservice only proves the user is an authenticated UDS user (no `groups.anyOf` — the edge gate is intentionally broad). Roles are owned by the roster DB (member_roles) and resolved by the backend from the `edipi` claim; a user whose EDIPI has no roster row is authenticated but gets 403 (see backend/auth.py, docs/configuration.md).
+  #
+  # The single mapper puts the user's EDIPI into the token. The per-user `edipi` attribute must exist in the Keycloak `uds` realm (see docs/configuration.md).
+  sso:
+    - name: Deployment Readiness Platform
+      clientId: uds-drp
+      redirectUris:
+        - "https://drp.{{ .Values.domain }}/login"
+      enableAuthserviceSelector:
+        {{- include "drp.selectorLabels" . | nindent 8 }}
+      protocolMappers:
+        - name: edipi
+          protocol: "openid-connect"
+          protocolMapper: "oidc-usermodel-attribute-mapper"
+          config:
+            user.attribute: "edipi"
+            claim.name: "edipi"
+            access.token.claim: "true"
+            id.token.claim: "true"
+            userinfo.token.claim: "true"
+            jsonType.label: "String"

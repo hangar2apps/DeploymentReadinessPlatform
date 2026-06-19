@@ -12,11 +12,23 @@ from flask.wrappers import Response
 from psycopg2.extras import RealDictRow
 
 
+import auth
 import db
 import email_service
 import rules
 
 bp = Blueprint("assessments", __name__, url_prefix="/api/assessments")
+
+# Subtree of a unit (the unit + all descendants), for scoping list results to a
+# provider's / commander's own command. Usable inside an `IN (...)` clause.
+_SUBTREE_IDS = """
+  WITH RECURSIVE subtree AS (
+    SELECT id FROM units WHERE id = %s
+    UNION ALL
+    SELECT u.id FROM units u JOIN subtree s ON u.parent_unit_id = s.id
+  )
+  SELECT id FROM subtree
+"""
 
 
 def _notify_member(service_member_id: str, assessment: dict, kind: str) -> Tuple[bool, Any]:
@@ -171,18 +183,23 @@ def _remaining_high_flag_reason(cur, service_member_id):
 
 
 @bp.get("")
+@auth.require_role(auth.ROLE_PROVIDER, auth.ROLE_COMMANDER)
 def list_assessments() -> Response:
     """
     GET /api/assessments — filterable by status, unit, type.
+
+    Scoped to the caller's own unit subtree: a provider/commander only sees
+    assessments for members in their command. An explicit unit_id is honored
+    only when it falls within that subtree (auth.scope_unit raises 403 otherwise).
     """
 
     clauses, params = [], []
     if status := request.args.get("status"):
         clauses.append("a.status = %s")
         params.append(status)
-    if unit_id := request.args.get("unit_id"):
-        clauses.append("sm.unit_id = %s")
-        params.append(unit_id)
+    if scope := auth.scope_unit(request.args.get("unit_id")):
+        clauses.append(f"sm.unit_id IN ({_SUBTREE_IDS})")
+        params.append(scope)
     if type_ := request.args.get("type"):
         clauses.append("a.type = %s")
         params.append(type_)
@@ -205,6 +222,7 @@ def list_assessments() -> Response:
 
 
 @bp.get("/<uuid:assessment_id>")
+@auth.require_role(auth.ROLE_PROVIDER, auth.ROLE_COMMANDER)
 def get_assessment(assessment_id: UUID) -> Tuple[Response, int]:
     """
     GET /api/assessments/:id — full detail with red flags.
@@ -221,12 +239,17 @@ def get_assessment(assessment_id: UUID) -> Tuple[Response, int]:
 
 
 @bp.post("")
+@auth.require_role(auth.ROLE_SERVICE_MEMBER)
 def create_assessment() -> Tuple[Response, int]:
     """
     POST /api/assessments — service member submits.
 
     Body: { service_member_id, type, responses, status? }
     If status is SUBMITTED (the default for a submit), we score it, run the rule engine, persist red flags, and update deployability.
+
+    A soldier may only submit for their own record (the EDIPI-resolved member),
+    so the body's service_member_id must match the caller — this is what keeps
+    multiple soldiers isolated from one another.
     """
 
     body = request.get_json(silent=True) or {}
@@ -239,6 +262,9 @@ def create_assessment() -> Tuple[Response, int]:
         return jsonify({
             "error": "service_member_id and a valid type are required"
         }), 400
+
+    if denied := auth.require_self(service_member_id):
+        return denied
 
     phq9, pcl5 = rules.score(responses)
     submitting = status == "SUBMITTED"
@@ -279,6 +305,7 @@ def create_assessment() -> Tuple[Response, int]:
 
 
 @bp.patch("/<uuid:assessment_id>/certify")
+@auth.require_role(auth.ROLE_PROVIDER, auth.ROLE_COMMANDER)
 def certify(assessment_id: UUID) -> Tuple[Response, int]:
     """
     PATCH /api/assessments/:id/certify — provider marks deployable.
@@ -339,6 +366,7 @@ def certify(assessment_id: UUID) -> Tuple[Response, int]:
 
 
 @bp.patch("/<uuid:assessment_id>/refer")
+@auth.require_role(auth.ROLE_PROVIDER, auth.ROLE_COMMANDER)
 def refer(assessment_id: UUID) -> Tuple[Response, int]:
     """
     PATCH /api/assessments/:id/refer — provider refers out.

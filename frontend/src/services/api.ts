@@ -25,6 +25,7 @@ import type {
   TrendPoint,
   Unit,
 } from '../types/drp';
+import type { Role } from '../lib/roles';
 import * as fx from './fixtures';
 
 const env = import.meta.env as Record<string, string | undefined>;
@@ -56,6 +57,26 @@ function qs(params: Record<string, string | boolean | number | undefined>): stri
   const entries = Object.entries(params).filter(([, v]) => v !== undefined && v !== '');
   if (entries.length === 0) return '';
   return '?' + entries.map(([k, v]) => `${k}=${encodeURIComponent(String(v))}`).join('&');
+}
+
+// ---- Identity ---------------------------------------------------------------
+// Who the Authservice/Keycloak session resolves to. In real mode the SPA loads
+// only after Authservice has logged the user in, so this reflects the live
+// session (role + the seeded member/unit they map to). In mock mode there is no
+// backend session; RoleContext uses the persona picker instead and never calls this.
+
+export interface Me {
+  // A user can hold several roles (a commander/provider is also a service member
+  // who owes their own assessment). Roles are owned by the backend roster, not Keycloak.
+  roles: Role[];
+  name: string | null;
+  edipi: string | null;
+  member_id: string | null;
+  unit_id: string | null;
+}
+
+export function fetchMe(): Promise<Me> {
+  return http('/api/me');
 }
 
 // ---- Units ------------------------------------------------------------------

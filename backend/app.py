@@ -17,6 +17,7 @@ from flask import Flask, jsonify, send_from_directory
 from flask.wrappers import Response
 from flask_cors import CORS
 
+import auth
 import config
 
 
@@ -46,13 +47,37 @@ def create_app() -> Flask:
 
     if os.getenv("SCHEDULER_ENABLED", "").lower() == "true":
         import scheduler as _scheduler
+
         _scheduler.start()
 
     app.register_blueprint(uploads_bp)
 
+    # Translate scope_unit's Forbidden into a 403 JSON response.
+    auth.register_error_handlers(app)
+
     @app.get("/api/health")
     def health() -> Response:
+        # Unauthenticated on purpose: the kubelet probes hit this before login.
         return jsonify({"status": "ok", "service": "drp-backend"})
+
+    @app.get("/api/me")
+    def me() -> Response:
+        # Who the Authservice/Keycloak session resolves to. The SPA calls this on
+        # load to learn its role + which seeded member/unit it operates as,
+        # replacing the mock persona picker once real auth is in front.
+        ident = auth.current_identity()
+        if not ident.subject_present:
+            return jsonify({"error": "authentication required"}), 401
+        if not ident.roles:
+            # Authenticated by Keycloak but the EDIPI has no roster row.
+            return jsonify({"error": "forbidden: not a provisioned DRP user"}), 403
+        return jsonify({
+            "roles": sorted(ident.roles),
+            "name": ident.name,
+            "edipi": ident.edipi,
+            "member_id": ident.member_id,
+            "unit_id": ident.unit_id,
+        })
 
     # --- SPA static serving + client-side-routing fallback ------------------
     # Replaces the standalone nginx container. Real files (JS/CSS/assets) are served as-is; any other path returns index.html so React Router can resolve it client-side — the equivalent of nginx `try_files ... /index.html`.

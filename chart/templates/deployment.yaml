@@ -37,6 +37,15 @@ spec:
               value: {{ .Values.config.openaiModel | quote }}
             - name: BACKEND_DEBUG
               value: {{ .Values.config.backendDebug | quote }}
+            - name: SENDGRID_FROM_EMAIL
+              value: {{ .Values.config.sendgridFromEmail | quote }}
+            - name: SCHEDULER_ENABLED
+              value: "true"
+            - name: SUPABASE_URL
+              valueFrom:
+                secretKeyRef:
+                  name: {{ .Chart.Name }}
+                  key: SUPABASE_URL
             - name: SUPABASE_CONNECTION_STRING
               valueFrom:
                 secretKeyRef:
@@ -47,6 +56,16 @@ spec:
                 secretKeyRef:
                   name: {{ .Chart.Name }}
                   key: OPENAI_API_KEY
+            - name: SENDGRID_API_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: {{ .Chart.Name }}
+                  key: SENDGRID_API_KEY
+            - name: SUPABASE_SERVICE_ROLE_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: {{ .Chart.Name }}
+                  key: SUPABASE_SERVICE_ROLE_KEY
           livenessProbe:
             httpGet:
               path: {{ .Values.probes.path }}

@@ -20,6 +20,7 @@ from uuid import UUID
 from flask import Blueprint, jsonify
 from flask.wrappers import Response
 
+import auth
 import db
 import email_service
 from deployment_helpers import get_subtree_members, latest_incomplete_items
@@ -28,7 +29,11 @@ bp = Blueprint("notifications", __name__, url_prefix="/api")
 
 
 @bp.post("/units/<uuid:unit_id>/notify-deployment")
+@auth.require_role(auth.ROLE_PROVIDER, auth.ROLE_COMMANDER)
 def notify_deployment(unit_id: UUID) -> Tuple[Response, int]:
+    # Same scoping as GET /api/units/:id — a provider/commander may only blast a
+    # unit within their own command subtree (raises 403 otherwise).
+    auth.scope_unit(str(unit_id))
     unit = db.query_one("SELECT * FROM units WHERE id = %s", (str(unit_id),))
     if not unit:
         return jsonify({"error": "unit not found"}), 404
@@ -61,7 +66,10 @@ def notify_deployment(unit_id: UUID) -> Tuple[Response, int]:
 
 
 @bp.post("/assessments/<uuid:assessment_id>/notify-referral")
+@auth.require_role(auth.ROLE_PROVIDER, auth.ROLE_COMMANDER)
 def notify_referral(assessment_id: UUID) -> Tuple[Response, int]:
+    # Role-gated like the sibling certify/refer actions in the assessments
+    # blueprint, which also email the member on a per-assessment decision.
     assessment = db.query_one(
         "SELECT * FROM assessments WHERE id = %s", (str(assessment_id),)
     )
