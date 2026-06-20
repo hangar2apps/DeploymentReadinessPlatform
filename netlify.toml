@@ -1,0 +1,19 @@
+# Netlify config — deploys the DRP frontend as a static, mock-mode demo site.
+# No backend / DB / API keys: VITE_USE_MOCKS=true makes the app serve the seeded
+# fixtures (all four personas, dashboards, and demo-tuned chat answers).
+
+[build]
+  base = "frontend"          # monorepo: install + build run inside frontend/
+  command = "npm run build"
+  publish = "dist"           # relative to base -> frontend/dist
+
+[build.environment]
+  NODE_VERSION = "22"        # Vite 8 needs Node 20.19+/22
+  VITE_USE_MOCKS = "true"    # explicit: no backend calls, fixtures only
+
+# SPA fallback so client-side routes (/provider, /commander, /assessment) and
+# page refreshes resolve to the app instead of 404ing.
+[[redirects]]
+  from = "/*"
+  to = "/index.html"
+  status = 200
