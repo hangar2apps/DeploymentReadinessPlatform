@@ -1,12 +1,20 @@
 # Deployment Readiness Platform (DRP)
 
-A unified pre- and post-deployment health assessment platform for military units. DRP digitizes the paper-based DD forms (2795, 2796, 2900) and the manual workflows around them — the EDHA web form, batched provider review, and Excel readiness roll-ups — into a single digital workflow connecting service members, medical providers, and commanders. DRP is a workflow and readiness-visibility layer, **not** a clinical system of record: it is designed to integrate with MHS Genesis (via FHIR), not replace it.
+*Pronounced "durp"...because that's how deployment processing currently feels.*
+
+## The Problem
+
+Today, deployment processing burns an entire day...sometimes two. Service members start at 0-dark-30 and shuffle from station to station with paper forms no one can read. Eventually that paperwork reaches an S1 clerk and *maybe* makes it into a digital system. All the while, commanders need real-time readiness, but what they get are sporadic updates as NCOs chase down soldiers, only to find them stuck in the wrong line the whole time. Meanwhile, providers sift through hundreds of health assessments trying to confirm each member is mentally and physically ready to deploy. A lot gets missed. It shouldn't.
+
+## The Solution
+
+DRP is a unified pre- and post-deployment health assessment platform for military units. It digitizes the paper-based DD forms (2795, 2796, 2900) and the manual workflows around them — the EDHA web form, batched provider review, and Excel readiness roll-ups — into a single digital workflow connecting service members, medical providers, and commanders. DRP is a workflow and readiness-visibility layer, **not** a clinical system of record: it is designed to integrate with MHS Genesis (via FHIR), not replace it.
 
 ---
 
 ## What It Does
 
-Today the process loses signal at every step: screenings are rushed so red flags surface late, post-deployment re-assessment (PDHRA) completion lags once units disperse, and commanders have no real-time view of unit readiness. DRP closes those gaps through three integrated surfaces:
+DRP brings all three roles into one digital workflow, each with a surface built for the job:
 
 | Surface | Who Uses It | Purpose |
 |---------|-------------|---------|
