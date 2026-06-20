@@ -73,4 +73,3 @@ For the full architecture, tech stack, local setup, API reference, testing, and 
 | [docs/configuration.md](docs/configuration.md) | Full configuration reference |
 | [docs/justifications.md](docs/justifications.md) | UDS policy exemptions with justification |
 | [docs/DRP_SPEC.md](docs/DRP_SPEC.md) | Full project specification and DoD context |
-| [CLAUDE_CODE_BUILD.md](CLAUDE_CODE_BUILD.md) | Complete build guide, database schema, API spec |
